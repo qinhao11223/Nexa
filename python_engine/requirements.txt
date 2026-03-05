@@ -1,0 +1,11 @@
+# Nexa AI 引擎依赖列表 (预留)
+# pip install -r requirements.txt
+
+# 常用 web 框架用于与前端进行本地通信
+# fastapi==0.103.1
+# uvicorn==0.23.2
+
+# 图像/视频处理核心
+# torch>=2.0.0
+# diffusers>=0.20.0
+# transformers>=4.33.0

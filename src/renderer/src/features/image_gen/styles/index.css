@@ -1,0 +1,2228 @@
+/* 图片生成模块专属的私有样式 */
+.ig-layout {
+  display: flex;
+  height: calc(100vh - 64px - 32px); /* 减去顶部和底部导航的高度 */
+  background-color: #0d0f14;
+  margin: -32px; /* 抵消外层 .nexa-content 的 padding */
+}
+
+/* =========================
+   浅色主题适配
+   说明：image_gen 使用了大量深色写死色值，浅色主题下做集中覆盖以保证一致性
+   ========================= */
+html[data-theme='light'] .ig-layout {
+  background-color: var(--bg-color);
+}
+
+html[data-theme='light'] .ig-left,
+html[data-theme='light'] .ig-right {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+}
+
+html[data-theme='light'] .ig-panel-block {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+}
+
+html[data-theme='light'] .ig-block-header {
+  color: var(--text-main);
+}
+
+html[data-theme='light'] .ig-center {
+  background-color: var(--bg-color);
+  background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px);
+}
+
+html[data-theme='light'] .ig-top-toolbar {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+}
+
+html[data-theme='light'] .ig-toolbar-btn {
+  color: var(--text-muted);
+}
+
+html[data-theme='light'] .ig-toolbar-btn:hover:not(.active) {
+  background-color: rgba(15, 23, 42, 0.04);
+  color: var(--text-main);
+}
+
+html[data-theme='light'] .ig-toolbar-btn.active {
+  background-color: rgba(10, 165, 197, 0.14);
+  color: var(--cyan-main);
+}
+
+html[data-theme='light'] .ig-pill {
+  background-color: rgba(15, 23, 42, 0.04);
+  color: var(--text-muted);
+}
+
+html[data-theme='light'] .ig-pill:hover {
+  background-color: rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme='light'] .ig-pill.active {
+  background-color: rgba(10, 165, 197, 0.18);
+  color: var(--cyan-main);
+}
+
+html[data-theme='light'] .ig-prompt-input,
+html[data-theme='light'] .ig-system-input {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+  color: var(--text-main);
+}
+
+html[data-theme='light'] .ig-prompt-input:focus {
+  border-color: var(--cyan-main);
+}
+
+html[data-theme='light'] .ig-system-input:focus {
+  border-color: rgba(10, 165, 197, 0.6);
+}
+
+html[data-theme='light'] .ig-model-label {
+  color: var(--text-muted);
+}
+
+html[data-theme='light'] .ig-model-select-box {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+  color: var(--text-main);
+}
+
+html[data-theme='light'] .ig-model-select-box:hover {
+  border-color: rgba(10, 165, 197, 0.35);
+}
+
+html[data-theme='light'] .ig-model-dropdown {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.15);
+}
+
+html[data-theme='light'] .ig-model-item {
+  color: rgba(15, 23, 42, 0.85);
+}
+
+html[data-theme='light'] .ig-model-item:hover {
+  background-color: rgba(15, 23, 42, 0.04);
+  color: var(--cyan-main);
+}
+
+html[data-theme='light'] .ig-result-card {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+}
+
+html[data-theme='light'] .ig-result-card:hover {
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+  border-color: rgba(10, 165, 197, 0.35);
+}
+
+html[data-theme='light'] .ig-result-prompt {
+  color: rgba(75, 85, 104, 0.92);
+}
+
+html[data-theme='light'] .ig-history-item {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+}
+
+html[data-theme='light'] .ig-history-item:hover {
+  background-color: rgba(15, 23, 42, 0.03);
+}
+
+html[data-theme='light'] .ig-history-info .title {
+  color: rgba(15, 23, 42, 0.90);
+}
+
+html[data-theme='light'] .ig-history-info .desc {
+  color: rgba(75, 85, 104, 0.92);
+}
+
+html[data-theme='light'] .ig-history-thumb {
+  background-color: rgba(15, 23, 42, 0.04);
+  color: rgba(75, 85, 104, 0.9);
+}
+
+html[data-theme='light'] .ig-right-header {
+  color: var(--text-main);
+}
+
+html[data-theme='light'] .ig-collapse-btn {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+  color: var(--text-muted);
+}
+
+html[data-theme='light'] .ig-collapse-btn:hover {
+  background-color: rgba(15, 23, 42, 0.04);
+  color: var(--text-main);
+}
+
+html[data-theme='light'] .ig-quick-chip {
+  background: #ffffff;
+  border-color: var(--border-color);
+  color: rgba(15, 23, 42, 0.88);
+}
+
+html[data-theme='light'] .ig-quick-chip:hover {
+  border-color: rgba(10, 165, 197, 0.35);
+  background: rgba(10, 165, 197, 0.06);
+  color: rgba(15, 23, 42, 0.95);
+}
+
+html[data-theme='light'] .ig-quick-chip.active {
+  border-color: rgba(10, 165, 197, 0.45);
+  background: rgba(10, 165, 197, 0.12);
+  color: var(--cyan-main);
+}
+
+html[data-theme='light'] .ig-batch-control {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+}
+
+html[data-theme='light'] .ig-batch-btn {
+  color: var(--text-muted);
+}
+
+html[data-theme='light'] .ig-batch-btn:hover {
+  color: var(--text-main);
+}
+
+html[data-theme='light'] .ig-batch-value {
+  color: var(--text-main);
+}
+
+/* 底部“清空”按钮使用专用样式更统一 */
+.ig-bottom-btn {
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(224, 224, 224, 0.95);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ig-bottom-btn:hover:not(:disabled) {
+  border-color: rgba(0, 229, 255, 0.20);
+  background: rgba(0, 229, 255, 0.06);
+  color: #e7fbff;
+}
+
+.ig-bottom-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+html[data-theme='light'] .ig-bottom-btn {
+  border-color: var(--border-color);
+  background: #ffffff;
+  color: rgba(15, 23, 42, 0.86);
+}
+
+html[data-theme='light'] .ig-bottom-btn:hover:not(:disabled) {
+  border-color: rgba(10, 165, 197, 0.35);
+  background: rgba(10, 165, 197, 0.06);
+  color: rgba(15, 23, 42, 0.95);
+}
+
+/* 隐藏滚动条但保留滚动功能 */
+.ig-layout *::-webkit-scrollbar {
+  width: 6px;
+}
+.ig-layout *::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ig-layout *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+/* --- 左侧边栏 (控制区) --- */
+.ig-left {
+  width: 300px;
+  background-color: #12141a;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.ig-panel-block {
+  background-color: #181b21;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 专门给需要拉伸的面板用的修饰类 */
+.ig-panel-block.flex-grow {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.ig-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.ig-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ig-mini-btn {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(224, 224, 224, 0.95);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ig-mini-btn:hover:not(:disabled) {
+  border-color: rgba(0, 229, 255, 0.20);
+  background: rgba(0, 229, 255, 0.06);
+  color: #e7fbff;
+}
+
+.ig-mini-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 上传区 (虚线框) */
+.ig-upload-area {
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  height: 160px;
+  padding: 8px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #8e94a8;
+  transition: all 0.2s;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 900px) {
+  .ig-upload-area {
+    height: 132px;
+  }
+}
+
+.ig-upload-scroll {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 78px);
+  grid-auto-rows: 78px;
+  gap: 8px;
+  align-content: start;
+  justify-content: start;
+  overflow: auto;
+  padding-right: 14px; /* 给滚动条与计数留空间 */
+  scrollbar-gutter: stable;
+}
+
+.ig-upload-thumb {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ig-upload-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ig-upload-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.42);
+  color: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ig-upload-remove:hover {
+  border-color: rgba(0, 229, 255, 0.35);
+  background: rgba(0, 229, 255, 0.10);
+  color: #e7fbff;
+}
+
+.ig-upload-plus {
+  width: 78px;
+  height: 78px;
+  flex: 0 0 auto;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(224, 224, 224, 0.92);
+  border-radius: 10px;
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.ig-upload-plus:hover {
+  border-color: rgba(0, 229, 255, 0.25);
+  background: rgba(0, 229, 255, 0.06);
+  color: #e7fbff;
+}
+
+.ig-upload-count {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  font-size: 0.72rem;
+  color: rgba(142, 148, 168, 0.95);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 2px 8px;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* 上传图片展开窗口（复用预览遮罩风格，但用更轻的卡片） */
+.ig-upload-modal-card {
+  width: min(920px, calc(100% - 80px));
+  height: min(620px, calc(100% - 80px));
+  background: rgba(15, 17, 23, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 18px;
+  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ig-upload-modal-head {
+  padding: 12px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ig-upload-modal-head .t {
+  font-weight: 900;
+  color: rgba(224, 224, 224, 0.95);
+}
+
+.ig-upload-modal-head .sub {
+  font-size: 0.8rem;
+  color: rgba(142, 148, 168, 0.95);
+}
+
+.ig-upload-modal-head .spacer {
+  flex: 1;
+}
+
+.ig-upload-modal-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(224, 224, 224, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ig-upload-modal-close:hover {
+  border-color: rgba(0, 229, 255, 0.20);
+  background: rgba(0, 229, 255, 0.06);
+  color: #e7fbff;
+}
+
+.ig-upload-modal-empty {
+  padding: 24px;
+  color: rgba(142, 148, 168, 0.95);
+}
+
+.ig-upload-modal-empty .t {
+  font-weight: 900;
+  color: rgba(224, 224, 224, 0.92);
+}
+
+.ig-upload-modal-empty .d {
+  margin-top: 6px;
+  font-size: 0.88rem;
+}
+
+.ig-upload-modal-grid {
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.ig-upload-modal-thumb {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  height: 160px;
+  cursor: grab;
+}
+
+.ig-upload-modal-thumb:active {
+  cursor: grabbing;
+}
+
+.ig-upload-modal-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ig-upload-modal-name {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  font-size: 0.72rem;
+  color: rgba(240, 240, 240, 0.92);
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 4px 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ig-upload-area:hover {
+  border-color: #5b6df0;
+  color: #5b6df0;
+  background-color: rgba(91, 109, 240, 0.05);
+}
+
+/* 浅色主题下的上传区：避免灰块显脏，保持轻盈 */
+html[data-theme='light'] .ig-upload-area {
+  border-color: rgba(15, 23, 42, 0.16);
+  color: rgba(75, 85, 104, 0.95);
+  background-color: rgba(15, 23, 42, 0.03);
+}
+
+html[data-theme='light'] .ig-upload-thumb {
+  border-color: rgba(15, 23, 42, 0.14);
+  background: rgba(15, 23, 42, 0.02);
+}
+
+html[data-theme='light'] .ig-upload-count {
+  color: rgba(75, 85, 104, 0.92);
+  background: rgba(255, 255, 255, 0.70);
+  border-color: rgba(15, 23, 42, 0.10);
+}
+
+html[data-theme='light'] .ig-mini-btn {
+  background: #ffffff;
+  border-color: var(--border-color);
+  color: rgba(15, 23, 42, 0.86);
+}
+
+html[data-theme='light'] .ig-mini-btn:hover:not(:disabled) {
+  border-color: rgba(10, 165, 197, 0.35);
+  background: rgba(10, 165, 197, 0.06);
+  color: rgba(15, 23, 42, 0.95);
+}
+
+html[data-theme='light'] .ig-upload-modal-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(15, 23, 42, 0.14);
+}
+
+html[data-theme='light'] .ig-upload-modal-head {
+  border-bottom-color: rgba(15, 23, 42, 0.10);
+}
+
+html[data-theme='light'] .ig-upload-modal-head .t {
+  color: rgba(15, 23, 42, 0.90);
+}
+
+html[data-theme='light'] .ig-upload-modal-name {
+  color: rgba(15, 23, 42, 0.92);
+  background: rgba(255, 255, 255, 0.74);
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme='light'] .ig-upload-area:hover {
+  border-color: rgba(10, 165, 197, 0.45);
+  color: var(--cyan-main);
+  background-color: rgba(10, 165, 197, 0.06);
+}
+
+/* 选项胶囊 (如 1:1, 16:9) */
+.ig-pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ig-pill {
+  padding: 6px 12px;
+  background-color: #242730;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  color: #8e94a8;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.ig-pill:hover {
+  background-color: #2d313c;
+}
+
+.ig-pill.active {
+  background-color: #5b6df0;
+  color: #fff;
+}
+
+/* 提示词输入框 */
+.ig-prompt-input {
+  width: 100%;
+  /* 让提示词区域更紧凑：避免占满左侧面板 */
+  flex: 0 0 auto;
+  min-height: 96px;
+  max-height: 160px;
+  background-color: #0a0b0e;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+  color: #fff;
+  font-size: 0.9rem;
+  resize: none;
+}
+
+.ig-prompt-input:focus {
+  outline: none;
+  border-color: #5b6df0;
+}
+
+/* 优化系统提示词输入框 */
+.ig-system-input {
+  width: 100%;
+  min-height: 86px;
+  max-height: 180px;
+  background-color: #0a0b0e;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+  color: #fff;
+  font-size: 0.86rem;
+  resize: none;
+}
+
+.ig-system-input:focus {
+  outline: none;
+  border-color: rgba(0, 229, 255, 0.6);
+}
+
+.ig-help-text {
+  color: rgba(142, 148, 168, 0.95);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+/* 链接提示词：列表样式（与右侧历史项风格一致） */
+.ig-creative-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ig-creative-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.ig-creative-tab {
+  flex: 1;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(142, 148, 168, 0.95);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ig-creative-tab:hover {
+  border-color: rgba(0, 229, 255, 0.20);
+  background: rgba(0, 229, 255, 0.06);
+  color: rgba(224, 224, 224, 0.95);
+}
+
+.ig-creative-tab.active {
+  border-color: rgba(0, 229, 255, 0.45);
+  background: rgba(0, 229, 255, 0.10);
+  color: #00e5ff;
+}
+
+.ig-creative-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 创意库项更适合居中对齐（复用历史项样式时做轻微覆盖） */
+.ig-creative-list .ig-history-item {
+  align-items: center;
+}
+
+.ig-creative-actions {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ig-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(142, 148, 168, 0.95);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ig-icon-btn:hover:not(:disabled) {
+  border-color: rgba(0, 229, 255, 0.25);
+  background: rgba(0, 229, 255, 0.06);
+  color: #00e5ff;
+}
+
+.ig-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ig-action-btn {
+  background: transparent;
+  border: none;
+  color: #8e94a8;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.2s;
+}
+
+.ig-action-btn:hover {
+  color: #00e5ff;
+}
+
+.ig-creative-empty {
+  margin-top: 12px;
+  color: #8e94a8;
+  font-size: 0.85rem;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='light'] .ig-creative-empty {
+  background: #ffffff;
+  border-color: var(--border-color);
+  color: var(--text-muted);
+}
+
+/* 轻量幽灵按钮（用于小操作：恢复默认/清空） */
+.ig-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(224, 224, 224, 0.9);
+  cursor: pointer;
+  font-size: 0.78rem;
+  transition: all 0.15s ease;
+}
+
+.ig-ghost-btn:hover:not(:disabled) {
+  border-color: rgba(0, 229, 255, 0.25);
+  background: rgba(0, 229, 255, 0.06);
+  color: #e7fbff;
+}
+
+.ig-ghost-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 生成按钮 */
+.ig-generate-btn {
+  background-color: #5b6df0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 14px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  margin-top: auto;
+}
+
+.ig-generate-btn:hover {
+  background-color: #4a59d8;
+}
+
+/* 提示词优化按钮 (类似 Start 按钮的小号版) */
+.ig-optimize-btn {
+  background-color: rgba(91, 109, 240, 0.1);
+  color: #5b6df0;
+  border: 1px solid rgba(91, 109, 240, 0.3);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.ig-optimize-btn:hover {
+  background-color: #5b6df0;
+  color: #fff;
+  border-color: #5b6df0;
+}
+
+/* 模型选择器相关样式 */
+.ig-model-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ig-model-label {
+  font-size: 0.8rem;
+  color: #8e94a8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* 防止在极端窄宽度下逐字换行成“竖排” */
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.ig-model-select-box {
+  background-color: #0a0b0e;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #fff;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.ig-model-select-box:hover {
+  border-color: #5b6df0;
+}
+
+.ig-model-select-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ig-model-select-icon {
+  color: #8e94a8;
+  flex-shrink: 0;
+}
+
+/* 模型下拉弹窗样式 */
+.ig-model-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background-color: #181b21;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 50;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.ig-model-dropdown::-webkit-scrollbar { width: 6px; }
+.ig-model-dropdown::-webkit-scrollbar-track { background: transparent; }
+.ig-model-dropdown::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+
+.ig-model-item {
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  color: #e0e0e0;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ig-model-item:hover {
+  background-color: #242730;
+  color: #00e5ff;
+}
+
+.ig-model-item.selected {
+  background-color: rgba(0, 229, 255, 0.1);
+  color: #00e5ff;
+  font-weight: 600;
+}
+
+/* 顶部搜索框内嵌在下拉菜单里 */
+.ig-model-search {
+  padding: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  position: sticky;
+  top: 0;
+  background-color: #181b21;
+  z-index: 2;
+}
+
+.ig-model-search input {
+  width: 100%;
+  background-color: #0a0b0e;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: #fff;
+  font-size: 0.8rem;
+}
+.ig-model-search input:focus {
+  outline: none;
+  border-color: #5b6df0;
+}
+
+/* 紧凑模型选择器（替代左侧两条大输入条） */
+.ig-compact-model {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ig-compact-head {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.ig-compact-select {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: rgba(224, 224, 224, 0.95);
+}
+
+.ig-compact-select:hover {
+  border-color: rgba(0, 229, 255, 0.20);
+  background: rgba(0, 229, 255, 0.06);
+}
+
+.ig-compact-select-text {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-theme='light'] .ig-compact-select {
+  background-color: #ffffff;
+  border-color: var(--border-color);
+  color: rgba(15, 23, 42, 0.90);
+}
+
+html[data-theme='light'] .ig-compact-select:hover {
+  border-color: rgba(10, 165, 197, 0.35);
+  background: rgba(10, 165, 197, 0.06);
+}
+
+/* 生图页模型快捷切换（常用预设） */
+.ig-quick-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+.ig-quick-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  max-width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(224, 224, 224, 0.9);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.ig-quick-chip:hover {
+  border-color: rgba(0, 229, 255, 0.25);
+  background: rgba(0, 229, 255, 0.06);
+  color: #e7fbff;
+}
+
+.ig-quick-chip.active {
+  border-color: rgba(0, 229, 255, 0.45);
+  background: rgba(0, 229, 255, 0.1);
+  color: #00e5ff;
+}
+
+/* --- 中间主画布区 --- */
+.ig-center {
+  flex: 1;
+  position: relative;
+  background-color: #0a0b0e;
+  /* 网格点阵背景 */
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 顶部分类切换 (桌面/本地创意) */
+.ig-top-toolbar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  max-width: calc(100% - 32px);
+  overflow-x: auto;
+  background-color: #181b21;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  z-index: 40; /* 提高 z-index 防止被图片遮挡 */
+}
+
+/* 顶部切换栏滚动时隐藏滚动条（但保留滚动能力） */
+.ig-top-toolbar::-webkit-scrollbar {
+  height: 0px;
+}
+
+.ig-toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: transparent;
+  color: #8e94a8;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  white-space: nowrap; /* 避免中文在窄窗口下拆成两行 */
+  flex-shrink: 0;      /* 窄窗口下不压缩按钮内容，改为横向滚动 */
+  line-height: 1;
+}
+
+.ig-toolbar-btn svg {
+  flex-shrink: 0;
+}
+
+.ig-toolbar-btn.active {
+  background-color: #3b82f6; /* 图中的蓝色 */
+  color: #fff;
+}
+
+.ig-toolbar-btn:hover:not(.active) {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+/* 底部并发请求数量与生成按钮组 */
+.ig-bottom-action-bar {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 40; /* 提高 z-index 防遮挡 */
+}
+
+/* 数字控制组件 */
+.ig-batch-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #181b21;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 6px 12px;
+  height: 40px;
+}
+
+.ig-batch-btn {
+  background: transparent;
+  border: none;
+  color: #8e94a8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+.ig-batch-btn:hover {
+  color: #fff;
+}
+
+.ig-batch-value {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* 底部中文开始按钮 */
+.ig-start-btn {
+  height: 48px;
+  border-radius: 24px;
+  background-color: #5b6df0;
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(91, 109, 240, 0.3);
+}
+
+.ig-start-btn:hover {
+  background-color: #4a59d8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(91, 109, 240, 0.4);
+}
+.ig-start-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(91, 109, 240, 0.3);
+}
+
+/* 画布内部留白区 (生成结果网格) */
+.ig-canvas-content {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-direction: column;
+  gap: 16px;
+  color: #8e94a8;
+  padding: 96px 24px 96px 24px; /* 顶部与底部留白，避免小窗重叠 */
+  overflow-y: auto;
+  /* 进入/退出自动叠放时内容高度变化会导致滚动条出现/消失，从而触发网格重排，看起来像“闪烁”
+     这里强制保留滚动条占位，避免布局抖动 */
+  scrollbar-gutter: stable;
+}
+
+/* 生成结果的瀑布流/网格布局 (密集排列) */
+.ig-results-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 16px;
+  align-content: start;
+}
+
+/* 画布工具栏（参考图四：自动叠放/隐藏名称/一键刷新）
+   目标：固定在图片区域上方，避免与首行图片在同一水平 */
+.ig-canvas-toptools {
+  position: absolute;
+  /* 放在更靠上的位置：避免与首行图片处于同一水平 */
+  top: 22px;
+  right: 24px;
+  z-index: 45;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: calc(100% - 48px);
+}
+
+/* 小窗口适配：避免与顶部导航/按钮互相覆盖
+   策略：整体等比缩小 + 下移到顶部导航下方 */
+@media (max-width: 1100px) {
+  .ig-canvas-toptools {
+    top: 62px;
+    transform: scale(0.92);
+    transform-origin: top right;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 900px) {
+  .ig-canvas-toptools {
+    transform: scale(0.84);
+  }
+}
+
+@media (max-width: 760px) {
+  .ig-canvas-toptools {
+    transform: scale(0.76);
+  }
+}
+
+/* 生图页顶部工具会占用上方空间：增加画布内容上边距，避免与图片重叠 */
+.ig-canvas-content.with-toptools {
+  padding-top: 152px;
+}
+
+.ig-tool-btn {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(224, 224, 224, 0.95);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .ig-tool-btn {
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    border-radius: 10px;
+  }
+}
+
+.ig-tool-btn:hover {
+  border-color: rgba(0, 229, 255, 0.20);
+  background: rgba(0, 229, 255, 0.06);
+  color: #e7fbff;
+}
+
+.ig-tool-btn.active {
+  border-color: rgba(0, 229, 255, 0.45);
+  background: rgba(0, 229, 255, 0.10);
+  color: #00e5ff;
+}
+
+html[data-theme='light'] .ig-tool-btn {
+  background: #ffffff;
+  border-color: var(--border-color);
+  color: rgba(15, 23, 42, 0.86);
+}
+
+html[data-theme='light'] .ig-tool-btn:hover {
+  border-color: rgba(10, 165, 197, 0.35);
+  background: rgba(10, 165, 197, 0.06);
+  color: rgba(15, 23, 42, 0.95);
+}
+
+html[data-theme='light'] .ig-tool-btn.active {
+  border-color: rgba(10, 165, 197, 0.45);
+  background: rgba(10, 165, 197, 0.12);
+  color: var(--cyan-main);
+}
+
+.ig-stack-title {
+  margin-top: 4px;
+  margin-bottom: 10px;
+  font-weight: 900;
+  color: rgba(224, 224, 224, 0.95);
+}
+
+html[data-theme='light'] .ig-stack-title {
+  color: var(--text-main);
+}
+
+.ig-stack-divider {
+  margin: 14px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme='light'] .ig-stack-divider {
+  border-top: 1px solid var(--border-color);
+}
+
+.ig-stack-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ig-stack-path {
+  color: rgba(142, 148, 168, 0.95);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-theme='light'] .ig-stack-path {
+  color: var(--text-muted);
+}
+
+.ig-folder-card {
+  cursor: pointer;
+}
+
+.ig-folder-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  z-index: 6;
+}
+
+.ig-folder-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.0) 30%, rgba(0,0,0,0.72) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 12px;
+  color: #fff;
+  z-index: 5;
+}
+
+.ig-folder-title {
+  font-weight: 900;
+  font-size: 0.92rem;
+}
+
+.ig-folder-sub {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* 包含图片和下方文字的外部容器 */
+.ig-result-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+/* 单个图片卡片容器 */
+.ig-result-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1; 
+  background-color: #12141a;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* 桌面式选择：选中高亮 + 右上角对号 */
+.ig-selected {
+  border-color: rgba(59, 130, 246, 0.90) !important;
+  box-shadow: 0 10px 26px rgba(59, 130, 246, 0.20);
+}
+
+.ig-selected-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.95);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+html[data-theme='light'] .ig-selected {
+  border-color: rgba(10, 165, 197, 0.70) !important;
+  box-shadow: 0 10px 26px rgba(10, 165, 197, 0.18);
+}
+
+html[data-theme='light'] .ig-selected-check {
+  background: rgba(10, 165, 197, 0.92);
+  border-color: rgba(15, 23, 42, 0.10);
+}
+
+/* 框选矩形：只有边框，不填充 */
+.ig-lasso {
+  position: fixed;
+  border: 1px solid rgba(59, 130, 246, 0.95);
+  border-radius: 6px;
+  background: transparent;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+html[data-theme='light'] .ig-lasso {
+  border-color: rgba(10, 165, 197, 0.90);
+}
+
+.ig-select-surface {
+  position: relative;
+}
+
+/* 让框选可以从大片空白处开始（选择层至少覆盖当前可视高度） */
+.ig-select-fill {
+  width: 100%;
+  min-height: 100%;
+}
+
+/* 文件夹重命名 */
+.ig-folder-rename {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+  z-index: 8;
+}
+
+.ig-folder-card:hover .ig-folder-rename {
+  opacity: 1;
+}
+
+.ig-folder-rename:hover {
+  border-color: rgba(0, 229, 255, 0.25);
+  background: rgba(0, 229, 255, 0.10);
+  color: #e7fbff;
+}
+
+/* 空文件夹占位：不使用 skeleton 动画 */
+.ig-folder-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(224, 224, 224, 0.92);
+  background:
+    radial-gradient(120px 120px at 30% 25%, rgba(0, 229, 255, 0.08), transparent 60%),
+    radial-gradient(160px 140px at 70% 70%, rgba(91, 109, 240, 0.10), transparent 62%),
+    rgba(18, 20, 26, 0.65);
+}
+
+.ig-folder-empty .t {
+  font-weight: 900;
+  font-size: 0.9rem;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-theme='light'] .ig-folder-empty {
+  color: rgba(15, 23, 42, 0.86);
+  background:
+    radial-gradient(120px 120px at 30% 25%, rgba(10, 165, 197, 0.12), transparent 60%),
+    radial-gradient(160px 140px at 70% 70%, rgba(59, 130, 246, 0.10), transparent 62%),
+    rgba(255, 255, 255, 0.96);
+}
+
+html[data-theme='light'] .ig-folder-rename {
+  border-color: rgba(15, 23, 42, 0.16);
+  background: rgba(255, 255, 255, 0.85);
+  color: rgba(15, 23, 42, 0.86);
+}
+
+html[data-theme='light'] .ig-folder-rename:hover {
+  border-color: rgba(10, 165, 197, 0.35);
+  background: rgba(10, 165, 197, 0.12);
+}
+
+.ig-rename-row {
+  margin-top: 8px;
+}
+
+.ig-rename-input {
+  width: 100%;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(224, 224, 224, 0.95);
+  padding: 0 12px;
+  outline: none;
+}
+
+.ig-rename-input:focus {
+  border-color: rgba(0, 229, 255, 0.30);
+}
+
+html[data-theme='light'] .ig-rename-input {
+  background: #ffffff;
+  border-color: var(--border-color);
+  color: rgba(15, 23, 42, 0.90);
+}
+
+html[data-theme='light'] .ig-rename-input:focus {
+  border-color: rgba(10, 165, 197, 0.45);
+}
+
+/* 右键菜单（桌面风格） */
+.ig-context-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 9999;
+}
+
+.ig-context-menu {
+  position: fixed;
+  min-width: 180px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(18, 20, 26, 0.96);
+  box-shadow: 0 14px 60px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px);
+  z-index: 10000;
+}
+
+.ig-context-item {
+  width: 100%;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: rgba(224, 224, 224, 0.95);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 0.9rem;
+}
+
+.ig-context-item-left {
+  flex: 1;
+  text-align: left;
+}
+
+.ig-context-item-right {
+  color: rgba(142, 148, 168, 0.95);
+  font-size: 0.82rem;
+}
+
+.ig-context-sep {
+  height: 1px;
+  margin: 6px 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ig-context-label {
+  padding: 6px 10px;
+  color: rgba(142, 148, 168, 0.95);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.ig-context-item:hover:not(:disabled) {
+  background: rgba(0, 229, 255, 0.10);
+  color: #e7fbff;
+}
+
+.ig-context-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+html[data-theme='light'] .ig-context-menu {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: var(--border-color);
+  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.18);
+}
+
+html[data-theme='light'] .ig-context-item {
+  color: rgba(15, 23, 42, 0.92);
+}
+
+html[data-theme='light'] .ig-context-item-right {
+  color: rgba(75, 85, 104, 0.92);
+}
+
+html[data-theme='light'] .ig-context-sep {
+  background: rgba(15, 23, 42, 0.10);
+}
+
+html[data-theme='light'] .ig-context-label {
+  color: rgba(75, 85, 104, 0.92);
+}
+
+html[data-theme='light'] .ig-context-item:hover:not(:disabled) {
+  background: rgba(10, 165, 197, 0.12);
+}
+
+.ig-result-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* 卡片右上角的删除按钮 */
+.ig-result-card-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+  z-index: 5;
+}
+
+.ig-result-card:hover .ig-result-card-delete {
+  opacity: 1;
+}
+
+.ig-result-card-delete:hover {
+  background-color: rgba(255, 77, 79, 0.8); /* 悬停时变红 */
+  border-color: #ff4d4f;
+  transform: scale(1.1);
+}
+
+/* 底部提示词文本 (单行截断) */
+.ig-result-prompt {
+  font-size: 0.75rem;
+  color: #a0a5b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  padding: 0 4px;
+}
+
+/* 生成中的骨架屏动效 */
+.ig-skeleton {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #181b21 25%, #242730 50%, #181b21 75%);
+  background-size: 400% 100%;
+  animation: loading-skeleton 1.5s infinite linear;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #5b6df0;
+}
+
+@keyframes loading-skeleton {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 最终生成的图片 */
+.ig-result-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 保证充满卡片 */
+  cursor: pointer;
+  /* 减少某些设备上切换布局时的闪烁/抖动 */
+  backface-visibility: hidden;
+}
+
+/* =========================
+   拖拽排序/组文件夹（dnd-kit）
+   ========================= */
+
+.ig-dnd-dragging {
+  cursor: grabbing;
+}
+
+.ig-merge-zone,
+.ig-folder-drop {
+  position: absolute;
+  inset: 10px;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(224, 224, 224, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 0.86rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.15s ease;
+  z-index: 7;
+  backdrop-filter: blur(6px);
+}
+
+.ig-merge-zone.show,
+.ig-folder-drop.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ig-merge-zone.over,
+.ig-folder-drop.over {
+  border-color: rgba(0, 229, 255, 0.55);
+  background: rgba(0, 229, 255, 0.10);
+  color: #e7fbff;
+}
+
+html[data-theme='light'] .ig-merge-zone,
+html[data-theme='light'] .ig-folder-drop {
+  border-color: rgba(15, 23, 42, 0.18);
+  background: rgba(255, 255, 255, 0.65);
+  color: rgba(15, 23, 42, 0.86);
+}
+
+html[data-theme='light'] .ig-merge-zone.over,
+html[data-theme='light'] .ig-folder-drop.over {
+  border-color: rgba(10, 165, 197, 0.55);
+  background: rgba(10, 165, 197, 0.12);
+  color: rgba(15, 23, 42, 0.95);
+}
+
+.ig-dnd-overlay {
+  width: 140px;
+  height: 140px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(18, 20, 26, 0.90);
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.55);
+}
+
+.ig-dnd-overlay img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ig-dnd-overlay-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(142, 148, 168, 0.95);
+  font-weight: 900;
+}
+
+/* 全屏预览遮罩 */
+.ig-preview-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.9);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.ig-preview-modal.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 预览卡片：图片 + 右侧操作面板 */
+.ig-preview-card {
+  width: min(1200px, 92vw);
+  height: min(820px, 88vh);
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(18, 20, 26, 0.92);
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
+  position: relative;
+}
+
+.ig-preview-media {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0a0b0e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.ig-preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.55);
+}
+
+.ig-preview-side {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 11, 14, 0.85);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ig-preview-side-title {
+  font-weight: 900;
+  color: rgba(224, 224, 224, 0.95);
+  letter-spacing: 0.2px;
+}
+
+.ig-preview-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ig-preview-btn {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(224, 224, 224, 0.95);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 800;
+  transition: all 0.15s ease;
+}
+
+.ig-preview-btn:hover {
+  border-color: rgba(0, 229, 255, 0.25);
+  background: rgba(0, 229, 255, 0.06);
+  color: #e7fbff;
+}
+
+.ig-preview-btn.primary {
+  border-color: rgba(0, 229, 255, 0.45);
+  background: rgba(0, 229, 255, 0.10);
+  color: #00e5ff;
+}
+
+.ig-preview-info {
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 预览调试：展示接口返回 */
+.ig-preview-debug {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 14px;
+  padding: 10px;
+  min-height: 120px;
+  max-height: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ig-preview-debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ig-preview-debug-head .t {
+  font-weight: 900;
+  color: rgba(224, 224, 224, 0.92);
+  font-size: 0.84rem;
+}
+
+.ig-preview-debug-btn {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(224, 224, 224, 0.92);
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.ig-preview-debug-btn:hover {
+  border-color: rgba(0, 229, 255, 0.25);
+  background: rgba(0, 229, 255, 0.06);
+  color: #e7fbff;
+}
+
+.ig-preview-debug-body {
+  flex: 1;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.74rem;
+  line-height: 1.25;
+  color: rgba(142, 148, 168, 0.95);
+}
+
+.ig-preview-info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(142, 148, 168, 0.95);
+  font-size: 0.82rem;
+}
+
+.ig-preview-info-row .k {
+  flex-shrink: 0;
+}
+
+.ig-preview-info-row .v {
+  color: rgba(224, 224, 224, 0.95);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ig-preview-tip {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: rgba(0, 229, 255, 0.85);
+}
+
+.ig-preview-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ig-preview-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+/* --- 右侧边栏 (收藏与历史) --- */
+.ig-right {
+  width: 260px; /* 宽度减少一点 */
+  background-color: #12141a;
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  overflow: hidden;
+}
+
+.ig-right.collapsed {
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-left: none;
+}
+
+/* 侧边栏折叠按钮 */
+.ig-collapse-btn {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 60px;
+  background-color: #181b21;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #8e94a8;
+  z-index: 20;
+  transition: all 0.2s;
+}
+
+.ig-collapse-btn:hover {
+  background-color: #242730;
+  color: #fff;
+}
+
+.ig-right-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: bold;
+  color: #fff;
+}
+
+.ig-history-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ig-history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background-color: #181b21;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.ig-history-item:hover {
+  background-color: #242730;
+}
+
+.ig-history-item-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #8e94a8;
+  opacity: 0;
+  transition: all 0.2s;
+}
+
+.ig-history-item:hover .ig-history-item-delete {
+  opacity: 1;
+}
+
+.ig-history-item-delete:hover {
+  color: #ff4d4f;
+}
+
+.ig-history-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background-color: rgba(255,255,255,0.05);
+  object-fit: cover;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8e94a8;
+}
+
+.ig-history-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.ig-history-info .title {
+  color: #e0e0e0;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 16px;
+}
+
+.ig-history-info .desc {
+  color: #8e94a8;
+  font-size: 0.75rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ig-clear-btn {
+  background: transparent;
+  border: none;
+  color: #8e94a8;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+.ig-clear-btn:hover {
+  color: #ff4d4f;
+}
+
+.ig-empty-collection {
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: #8e94a8;
+  gap: 12px;
+}
+
+.ig-blue-btn {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}

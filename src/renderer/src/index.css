@@ -1,0 +1,715 @@
+:root {
+  /* 全新科幻深色调色板 */
+  --bg-color: #0f111a;          /* 全局极暗深蓝灰背景 */
+  --panel-bg: #1a1c24;          /* 卡片与组件背景 */
+  --topbar-bg: #14161f;         /* 顶部导航背景 */
+  --text-main: #f0f0f0;         /* 亮灰白正文 */
+  --text-muted: #8e94a8;        /* 柔和的次要文本 */
+  
+  /* 品牌色阶 */
+  --cyan-main: #00e5ff;         /* 亮青色 */
+  --pink-main: #ff0066;         /* 亮洋红/品红 */
+  --green-main: #00ff66;        /* 亮翠绿 */
+  
+  /* 辅助与边框 */
+  --border-color: #2a2d3d;
+  --border-light: rgba(255,255,255,0.08);
+}
+
+/* 浅色主题：主要通过覆盖 CSS 变量实现全局切换 */
+html[data-theme='light'] {
+  --bg-color: #f6f7fb;
+  --panel-bg: #ffffff;
+  --topbar-bg: #ffffff;
+  --text-main: #0b1020;
+  --text-muted: #4b5568;
+  --border-color: rgba(15, 23, 42, 0.12);
+  --border-light: rgba(15, 23, 42, 0.10);
+
+  --cyan-main: #0aa5c5;
+  --pink-main: #e11d48;
+  --green-main: #16a34a;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  overflow: hidden; /* 防止桌面应用出现滚动条 */
+  /* 添加微弱的背景纹理，让深色不单调 */
+  background-image: linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+  linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+/* ========================================================= */
+/* Themed Dialog + Toast (replace native alert/confirm/prompt) */
+/* ========================================================= */
+
+.nx-dialog-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+}
+
+.nx-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+
+.nx-dialog {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(520px, calc(100vw - 48px));
+  border-radius: 16px;
+  border: 1px solid var(--border-light);
+  background: rgba(18, 20, 26, 0.96);
+  box-shadow: 0 18px 80px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+
+html[data-theme='light'] .nx-dialog {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: var(--border-color);
+  box-shadow: 0 18px 80px rgba(15, 23, 42, 0.24);
+}
+
+.nx-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='light'] .nx-dialog-head {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.nx-dialog-title {
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: var(--text-main);
+}
+
+.nx-dialog-x {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 0;
+}
+
+.nx-dialog-x:hover {
+  border-color: rgba(0, 229, 255, 0.28);
+  color: var(--cyan-main);
+}
+
+html[data-theme='light'] .nx-dialog-x {
+  border-color: var(--border-color);
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.nx-dialog-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nx-dialog-message {
+  color: rgba(224, 224, 224, 0.92);
+  font-size: 0.92rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+html[data-theme='light'] .nx-dialog-message {
+  color: rgba(15, 23, 42, 0.90);
+}
+
+.nx-dialog-input {
+  width: 100%;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-main);
+  padding: 0 12px;
+  outline: none;
+}
+
+.nx-dialog-input:focus {
+  border-color: rgba(0, 229, 255, 0.35);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.10);
+}
+
+html[data-theme='light'] .nx-dialog-input {
+  background: #ffffff;
+  border-color: var(--border-color);
+  color: rgba(15, 23, 42, 0.90);
+}
+
+.nx-dialog-text {
+  width: 100%;
+  min-height: 160px;
+  max-height: 46vh;
+  resize: none;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(224, 224, 224, 0.92);
+  padding: 10px 12px;
+  outline: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+html[data-theme='light'] .nx-dialog-text {
+  background: rgba(15, 23, 42, 0.03);
+  border-color: var(--border-color);
+  color: rgba(15, 23, 42, 0.90);
+}
+
+.nx-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='light'] .nx-dialog-actions {
+  border-top: 1px solid var(--border-color);
+}
+
+.nx-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 229, 255, 0.40);
+  background: rgba(0, 229, 255, 0.10);
+  color: var(--cyan-main);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.nx-btn:hover {
+  border-color: rgba(0, 229, 255, 0.60);
+  background: rgba(0, 229, 255, 0.14);
+}
+
+.nx-btn.ghost {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(224, 224, 224, 0.92);
+}
+
+.nx-btn.ghost:hover {
+  border-color: rgba(0, 229, 255, 0.26);
+  background: rgba(0, 229, 255, 0.06);
+  color: #e7fbff;
+}
+
+html[data-theme='light'] .nx-btn.ghost {
+  border-color: var(--border-color);
+  background: rgba(15, 23, 42, 0.03);
+  color: rgba(15, 23, 42, 0.92);
+}
+
+/* Toast */
+.nx-toast-host {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 21000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(420px, calc(100vw - 32px));
+}
+
+.nx-toast {
+  border-radius: 14px;
+  border: 1px solid var(--border-light);
+  background: rgba(18, 20, 26, 0.96);
+  box-shadow: 0 12px 46px rgba(0, 0, 0, 0.55);
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+html[data-theme='light'] .nx-toast {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: var(--border-color);
+  box-shadow: 0 12px 46px rgba(15, 23, 42, 0.18);
+}
+
+.nx-toast .t {
+  font-weight: 800;
+  color: rgba(224, 224, 224, 0.92);
+}
+
+html[data-theme='light'] .nx-toast .t {
+  color: rgba(15, 23, 42, 0.92);
+}
+
+.nx-toast .d {
+  margin-top: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: rgba(142, 148, 168, 0.95);
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.nx-toast.success {
+  border-color: rgba(0, 229, 255, 0.26);
+}
+
+.nx-toast.error {
+  border-color: rgba(255, 77, 79, 0.28);
+}
+
+.nx-toast.info {
+  border-color: rgba(91, 109, 240, 0.22);
+}
+
+/* ========================================================= */
+/* Auto Update Modal                                          */
+/* ========================================================= */
+
+.nx-update-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 22000;
+}
+
+.nx-update-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+
+.nx-update {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(640px, calc(100vw - 48px));
+  border-radius: 16px;
+  border: 1px solid var(--border-light);
+  background: rgba(18, 20, 26, 0.96);
+  box-shadow: 0 18px 80px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+
+html[data-theme='light'] .nx-update {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: var(--border-color);
+  box-shadow: 0 18px 80px rgba(15, 23, 42, 0.24);
+}
+
+.nx-update-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='light'] .nx-update-head {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.nx-update-title {
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  color: var(--text-main);
+}
+
+.nx-update-x {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 0;
+}
+
+.nx-update-x:hover {
+  border-color: rgba(0, 229, 255, 0.28);
+  color: var(--cyan-main);
+}
+
+.nx-update-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nx-update-kv {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+html[data-theme='light'] .nx-update-kv {
+  border-color: var(--border-color);
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.nx-update-kv .k {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.nx-update-kv .v {
+  color: var(--text-main);
+  font-weight: 900;
+}
+
+.nx-update-notes .t {
+  font-weight: 900;
+  color: rgba(224, 224, 224, 0.92);
+  margin-bottom: 6px;
+}
+
+html[data-theme='light'] .nx-update-notes .t {
+  color: rgba(15, 23, 42, 0.92);
+}
+
+.nx-update-notes .p {
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(224, 224, 224, 0.92);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  max-height: 200px;
+  overflow: auto;
+}
+
+html[data-theme='light'] .nx-update-notes .p {
+  border-color: var(--border-color);
+  background: rgba(15, 23, 42, 0.03);
+  color: rgba(15, 23, 42, 0.92);
+}
+
+.nx-update-link {
+  margin-top: 6px;
+  background: transparent;
+  border: none;
+  color: var(--cyan-main);
+  cursor: pointer;
+  font-weight: 900;
+  padding: 0;
+}
+
+.nx-update-bar {
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.nx-update-bar .fill {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0.24), rgba(0, 229, 255, 0.65));
+}
+
+.nx-update-meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.nx-update-err {
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 77, 79, 0.22);
+  background: rgba(255, 77, 79, 0.06);
+  color: rgba(255, 220, 220, 0.92);
+  max-height: 180px;
+  overflow: auto;
+}
+
+.nx-update-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme='light'] .nx-update-actions {
+  border-top: 1px solid var(--border-color);
+}
+
+/* --- 总体垂直布局结构 --- */
+.nexa-app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* --- 顶部导航栏 (Topbar) --- */
+.nexa-topbar {
+  height: 64px;
+  background-color: var(--topbar-bg);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  /* 如果要在 Electron 中拖动窗口，可以加上下面这行 */
+  -webkit-app-region: drag;
+}
+
+/* 里面的按钮取消拖动效果，才能被点击 */
+.nexa-topbar > * {
+  -webkit-app-region: no-drag;
+}
+
+.brand-logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--cyan-main);
+  letter-spacing: 2px;
+  width: 200px; /* 固定宽度，方便中间导航居中 */
+}
+
+.top-nav {
+  display: flex;
+  gap: 32px;
+  height: 100%;
+}
+
+.top-nav a {
+  text-decoration: none;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  padding: 0 8px;
+  position: relative;
+  transition: color 0.2s ease;
+}
+
+.top-nav a:hover {
+  color: var(--text-main);
+}
+
+.top-nav a.active {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+/* 选中状态底部青色横线 */
+.top-nav a.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--cyan-main);
+  box-shadow: 0 -2px 10px var(--cyan-main);
+}
+
+.settings-btn-area {
+  width: 200px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-btn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settings-btn:hover, .settings-btn.active {
+  border-color: var(--cyan-main);
+  color: var(--cyan-main);
+}
+
+/* --- 核心内容区 --- */
+.nexa-content {
+  flex: 1;
+  position: relative;
+  overflow-y: auto;
+  padding: 32px;
+}
+
+/* --- 底部状态栏 (Footer) --- */
+.nexa-footer {
+  height: 32px;
+  background-color: var(--topbar-bg);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* ========================================================= */
+/* --- 首页 (Home) 专属样式 --- */
+/* ========================================================= */
+.home-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding-bottom: 5vh; /* 稍微向上偏移一点看起来更舒服 */
+}
+
+.home-header {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.home-title {
+  font-size: 3.5rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  margin-bottom: 16px;
+}
+
+.text-white { color: var(--text-main); }
+.text-cyan { color: var(--cyan-main); }
+
+.home-subtitle {
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  letter-spacing: 1px;
+}
+
+.cards-wrapper {
+  display: flex;
+  gap: 32px;
+  justify-content: center;
+}
+
+.feature-card {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  width: 260px;
+  height: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  text-align: center;
+}
+
+.feature-card:hover {
+  transform: translateY(-8px);
+  background-color: #21242e;
+}
+
+/* 浅色主题下：hover 不要变成深色块 */
+html[data-theme='light'] .feature-card:hover {
+  background-color: #f1f5f9;
+}
+
+.card-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: rgba(255,255,255,0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+html[data-theme='light'] .card-icon-wrapper {
+  background-color: rgba(15, 23, 42, 0.03);
+}
+
+.feature-card h2 {
+  font-size: 1.3rem;
+  margin-bottom: 12px;
+  color: var(--text-main);
+}
+
+.feature-card p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* 不同主题的卡片颜色映射 */
+.card-cyan .card-icon { color: var(--cyan-main); }
+.card-pink .card-icon { color: var(--pink-main); }
+.card-green .card-icon { color: var(--green-main); }
+
+/* 激活或强调的卡片（图上的红色边框效果） */
+.feature-card.active-card {
+  border-color: var(--pink-main);
+  box-shadow: 0 0 20px rgba(255, 0, 102, 0.1);
+}
+
+/* 其他基础视图的占位符 */
+.feature-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.feature-header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+.feature-header h1 { font-size: 1.5rem; margin-bottom: 8px; }
+.feature-header p { color: var(--text-muted); }

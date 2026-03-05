@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "node_id": "nexa.custom.asset.video",
+  "version": "1.0.0",
+  "display_name": "Video",
+  "description": "视频资源节点",
+  "category": "资源",
+  "tags": ["asset", "video"],
+  "search_aliases": ["video", "视频", "资源"],
+  "runtime": {
+    "kind": "custom",
+    "entry": "asset"
+  },
+  "interface": {
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "asset",
+        "type": "asset:video"
+      }
+    ],
+    "params": [
+      { "name": "file_name", "type": "string", "label": "文件名", "default": "" },
+      { "name": "mime", "type": "string", "label": "MIME", "default": "" },
+      { "name": "size_bytes", "type": "number", "label": "大小(bytes)", "default": 0 },
+      { "name": "file_path", "type": "string", "label": "路径", "default": "" }
+    ]
+  },
+  "permissions": []
+}

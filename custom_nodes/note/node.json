@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "node_id": "nexa.custom.note",
+  "version": "1.0.0",
+  "display_name": "Note",
+  "description": "便签 / 注释节点",
+  "category": "基础",
+  "tags": ["note", "text"],
+  "search_aliases": ["note", "便签", "注释"],
+  "runtime": {
+    "kind": "custom",
+    "entry": "note"
+  },
+  "interface": {
+    "inputs": [
+      {
+        "name": "in",
+        "type": "string",
+        "required": false,
+        "multiple": false
+      }
+    ],
+    "outputs": [
+      {
+        "name": "text",
+        "type": "string"
+      }
+    ],
+    "params": [
+      {
+        "name": "note",
+        "type": "text",
+        "label": "内容",
+        "default": ""
+      }
+    ]
+  },
+  "permissions": []
+}

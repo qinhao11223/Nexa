@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "node_id": "nexa.custom.text",
+  "version": "1.0.0",
+  "display_name": "Text",
+  "description": "输入一段文本，输出为字符串",
+  "category": "基础",
+  "tags": ["text", "input"],
+  "search_aliases": ["text", "文本", "输入文字"],
+  "runtime": {
+    "kind": "custom",
+    "entry": "text"
+  },
+  "interface": {
+    "inputs": [
+      {
+        "name": "in",
+        "type": "string",
+        "required": false,
+        "multiple": false
+      }
+    ],
+    "outputs": [
+      {
+        "name": "text",
+        "type": "string"
+      }
+    ],
+    "params": [
+      {
+        "name": "text",
+        "type": "text",
+        "label": "文本",
+        "default": ""
+      },
+      {
+        "name": "use_input_when_connected",
+        "type": "boolean",
+        "label": "有输入时使用输入",
+        "default": true
+      }
+    ]
+  },
+  "permissions": []
+}

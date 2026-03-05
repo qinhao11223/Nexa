@@ -1,0 +1,63 @@
+{
+  "name": "nexa",
+  "version": "1.0.0",
+  "description": "Nexa - AI Generation and Workflow Desktop App",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && electron-builder --publish never",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@xyflow/react": "^12.0.0",
+    "axios": "^1.6.8",
+    "lucide-react": "^0.368.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.3",
+    "electron-log": "^5.4.1",
+    "electron-updater": "^6.6.2",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.74",
+    "@types/react-dom": "^18.2.24",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^29.1.5",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.4.3",
+    "vite": "^5.2.8",
+    "vite-plugin-electron": "^0.28.4",
+    "vite-plugin-electron-renderer": "^0.14.5"
+  },
+  "build": {
+    "appId": "com.nexa.app",
+    "productName": "Nexa",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "artifactName": "${productName} Setup ${version}.${ext}",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "qinhao11223",
+        "repo": "Nexa"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
