@@ -10,6 +10,14 @@ declare global {
       getAppVersion: () => Promise<{ success: boolean, version: string, name: string }>
       minimizeWindow: () => void
 
+      // File-based persistence config
+      getPersistConfig: () => Promise<{ success: boolean, config: { setupCompleted: boolean, dataRoot: string, imageOutputDirectory: string, videoOutputDirectory: string } }>
+      setPersistConfig: (patch: any) => Promise<{ success: boolean, config?: { setupCompleted: boolean, dataRoot: string, imageOutputDirectory: string, videoOutputDirectory: string }, error?: string }>
+      openDataRoot: () => Promise<{ ok: boolean, path?: string }>
+      persistGetItem: (key: string) => Promise<{ success: boolean, value: string | null }>
+      persistSetItem: (key: string, value: string) => Promise<{ success: boolean }>
+      persistRemoveItem: (key: string) => Promise<{ success: boolean }>
+
       // 下载图片到本地（由主进程完成文件写入）
       downloadImage: (args: { url: string, saveDir: string, fileName: string }) => Promise<{ success: boolean, localPath?: string, error?: string }>
 

@@ -12,6 +12,25 @@ export default function SettingsView() {
   const { outputDirectory, setOutputDirectory, autoSaveEnabled, setAutoSaveEnabled, theme, setTheme, updateChannel, setUpdateChannel } = useSettingsStore()
 
   const [appVersion, setAppVersion] = React.useState<string>('')
+  const [persistCfg, setPersistCfg] = React.useState<any>(null)
+
+  React.useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const api = (window as any).nexaAPI
+        if (!api?.getPersistConfig) return
+        const r = await api.getPersistConfig()
+        if (!alive) return
+        if (r?.success) setPersistCfg(r.config)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
   React.useEffect(() => {
     let alive = true
     ;(async () => {
@@ -86,6 +105,69 @@ export default function SettingsView() {
             <div className="st-header">
               <h1>通用设置</h1>
               <p>控制软件的全局外观和默认行为</p>
+            </div>
+
+            <div className="st-group">
+              <label className="st-label">本地数据存储</label>
+              <div className="st-inline-row">
+                <div className="st-inline-left">
+                  <div className="st-inline-title">数据存储位置</div>
+                  <div className="st-inline-desc">用于保存设置、创意库、布局等本地数据。默认在“文档/Nexa”。</div>
+                </div>
+                <button
+                  type="button"
+                  className="st-refresh-btn"
+                  onClick={async () => {
+                    try {
+                      const api = (window as any).nexaAPI
+                      const r = await api?.openDataRoot?.()
+                      if (!r?.ok) uiToast('error', '打开失败')
+                    } catch {
+                      uiToast('error', '打开失败')
+                    }
+                  }}
+                >
+                  打开文件夹
+                </button>
+              </div>
+
+              <div className="st-input-wrapper">
+                <input
+                  type="text"
+                  className="st-input"
+                  value={String(persistCfg?.dataRoot || '')}
+                  readOnly
+                  placeholder="数据存储路径"
+                />
+              </div>
+
+              <div className="st-inline-row" style={{ marginTop: 10 }}>
+                <div className="st-inline-left">
+                  <div className="st-inline-title">重新运行首次设置</div>
+                  <div className="st-inline-desc">如果你想把数据/默认保存目录迁移到其它盘符，可以重新配置。</div>
+                </div>
+                <button
+                  type="button"
+                  className="st-refresh-btn"
+                  onClick={async () => {
+                    try {
+                      const api = (window as any).nexaAPI
+                      if (!api?.setPersistConfig) return
+                      const r = await api.setPersistConfig({ setupCompleted: false })
+                      if (!r?.success) {
+                        uiToast('error', r?.error || '操作失败')
+                        return
+                      }
+                      uiToast('success', '已标记为未完成，下次打开会弹出向导')
+                      setPersistCfg(r.config)
+                    } catch (e: any) {
+                      uiToast('error', e?.message || '操作失败')
+                    }
+                  }}
+                >
+                  重新设置
+                </button>
+              </div>
             </div>
             
             <div className="st-group">

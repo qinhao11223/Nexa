@@ -20,6 +20,8 @@ function createWindow() {
     width: 1200,
     height: 800,
     title: 'Nexa',
+    show: false,
+    backgroundColor: '#0b0e14',
     autoHideMenuBar: true, // 隐藏默认的 Windows 菜单栏 (File, Edit 等)
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -47,6 +49,11 @@ function createWindow() {
     // Vite build output is dist/index.html (see vite.config.ts outDir)
     mainWindow.loadFile(join(__dirname, '../index.html'))
   }
+
+  mainWindow.once('ready-to-show', () => {
+    if (!mainWindow) return
+    mainWindow.show()
+  })
 }
 
 app.whenReady().then(() => {

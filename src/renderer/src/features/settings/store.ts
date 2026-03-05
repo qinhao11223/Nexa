@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { fileJSONStorage } from '../../core/persist/fileStorage'
 
 export interface ApiProvider {
   id: string
@@ -220,6 +221,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'nexa-settings-v2', // 更换本地存储 key，这会让旧的错误数据失效，达到纯净的“默认为空”状态
+      storage: fileJSONStorage,
        version: 8,
       migrate: (persistedState: any) => {
         // 迁移：早期版本把 outputDirectory 写死在 C 盘用户目录里，项目转移到其它盘符后会导致保存/预览异常

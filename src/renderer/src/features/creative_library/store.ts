@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { fileJSONStorage } from '../../core/persist/fileStorage'
 import type { CreativeIdea, CreativeLibraryMode, CreativeCategory, CreativePromptIdea, CreativeOptimizeIdea } from './types'
 import { DEFAULT_OPTIMIZE_IDEAS, DEFAULT_PROMPT_IDEAS } from './data/defaultIdeas'
 
@@ -187,6 +188,7 @@ export const useCreativeLibraryStore = create<CreativeLibraryState>()(
     {
       // 保持旧 key：让历史数据可以自动迁移
       name: 'nexa-creative-library-v1',
+      storage: fileJSONStorage,
       version: 2,
       migrate: (persistedState: any) => {
         // 从 v1 ideas[] 迁移到 v2 promptIdeas[] + optimizeIdeas[]

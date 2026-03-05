@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { fileJSONStorage } from '../../../core/persist/fileStorage'
 import type { Connection, Edge, Node, NodeChange, EdgeChange, Viewport } from '@xyflow/react'
 import { addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react'
 import type { CanvasNodeData, NodeManifest } from '../registry/types'
@@ -273,6 +274,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     }),
     {
       name: 'nexa-node-canvas-workflow-v1',
+      storage: fileJSONStorage,
       version: 1,
       partialize: (s) => ({
         meta: s.meta,

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { fileJSONStorage } from '../../core/persist/fileStorage'
 import type { RequestDebug, ResponseDebug } from '../../core/api/image'
 import { createVideoGeneration, pollVideoGeneration } from '../../core/api/video'
 
@@ -335,6 +336,7 @@ export const useVideoGenStore = create<VideoGenState>()(
     }),
     {
       name: LS_KEY,
+      storage: fileJSONStorage,
       version: 1,
       // 只持久化 tasks：运行时调试（responseFullById）不写入 localStorage
       partialize: (state) => ({ tasks: state.tasks })

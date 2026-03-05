@@ -1,18 +1,22 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import { Home, Image, Video, Share2, Settings } from 'lucide-react'
 import { useSettingsStore } from './features/settings/store'
 
-// 动态导入我们的各个独立功能模块
+// 主页面
 import HomeView from './features/home/Home'
-import SettingsView from './features/settings/Settings'
-import ImageGenView from './features/image_gen/ImageGen'
-import VideoGenView from './features/video_gen/VideoGen'
-import CanvasView from './features/node_canvas/CanvasApp'
-import CreativeLibraryRoute from './features/creative_library/CreativeLibraryRoute'
+
+// 其余模块改为懒加载：缩短冷启动时间
+const SettingsView = React.lazy(() => import('./features/settings/Settings'))
+const ImageGenView = React.lazy(() => import('./features/image_gen/ImageGen'))
+const VideoGenView = React.lazy(() => import('./features/video_gen/VideoGen'))
+const CanvasView = React.lazy(() => import('./features/node_canvas/CanvasApp'))
+const CreativeLibraryRoute = React.lazy(() => import('./features/creative_library/CreativeLibraryRoute'))
 import DialogHost from './features/ui/DialogHost'
 import ToastHost from './features/ui/ToastHost'
 import UpdateCenter from './features/ui/UpdateCenter'
+import FirstRunWizard from './features/ui/FirstRunWizard'
+import AppLoading from './features/ui/AppLoading'
 
 function App() {
   const location = useLocation()
@@ -60,20 +64,23 @@ function App() {
 
       {/* --- 核心内容区 (路由容器) --- */}
       <main className="nexa-content">
-        <Routes>
-          <Route path="/" element={<HomeView />} />
-          <Route path="/image" element={<ImageGenView />} />
-          <Route path="/video" element={<VideoGenView />} />
-          <Route path="/library" element={<CreativeLibraryRoute />} />
-          <Route path="/canvas" element={<CanvasView />} />
-          <Route path="/settings" element={<SettingsView />} />
-        </Routes>
+        <Suspense fallback={<AppLoading />}>
+          <Routes>
+            <Route path="/" element={<HomeView />} />
+            <Route path="/image" element={<ImageGenView />} />
+            <Route path="/video" element={<VideoGenView />} />
+            <Route path="/library" element={<CreativeLibraryRoute />} />
+            <Route path="/canvas" element={<CanvasView />} />
+            <Route path="/settings" element={<SettingsView />} />
+          </Routes>
+        </Suspense>
       </main>
 
       {/* Themed dialogs/toasts (replace native alert/confirm) */}
       <DialogHost />
       <ToastHost />
       <UpdateCenter />
+      <FirstRunWizard />
 
       {/* --- 底部状态栏 --- */}
       <footer className="nexa-footer">

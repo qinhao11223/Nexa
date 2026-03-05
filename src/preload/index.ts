@@ -8,6 +8,14 @@ const api = {
   // 应用版本信息
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
 
+  // 本地持久化（文件存储）
+  getPersistConfig: () => ipcRenderer.invoke('persist:get-config'),
+  setPersistConfig: (patch: any) => ipcRenderer.invoke('persist:set-config', patch),
+  openDataRoot: () => ipcRenderer.invoke('persist:open-data-root'),
+  persistGetItem: (key: string) => ipcRenderer.invoke('persist:kv-get', key),
+  persistSetItem: (key: string, value: string) => ipcRenderer.invoke('persist:kv-set', key, value),
+  persistRemoveItem: (key: string) => ipcRenderer.invoke('persist:kv-remove', key),
+
   // 窗口控制
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
 

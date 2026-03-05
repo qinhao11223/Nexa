@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow, shell, clipboard, nativeImage, dialog, app } from 'electron'
-import { join, isAbsolute, resolve } from 'path'
+import { join, resolve } from 'path'
 import { writeFile, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import { copyFile } from 'fs/promises'
@@ -8,6 +8,8 @@ import { readdir, stat } from 'fs/promises'
 import { sniffImage } from '../utils/sniffImage'
 import { sniffVideo } from '../utils/sniffVideo'
 import { checkForUpdates, downloadUpdate, openReleasesPage, quitAndInstall, setUpdateChannel, type UpdateChannel } from '../updater'
+import { getPersistConfig, openDataRootInExplorer, resolveUserPath, setPersistConfig } from '../persist/config'
+import { kvGetItem, kvRemoveItem, kvSetItem } from '../persist/kv'
 
 // 注册所有主进程与渲染进程的通信事件
 export function registerIpcHandlers(window: BrowserWindow) {
@@ -19,6 +21,40 @@ export function registerIpcHandlers(window: BrowserWindow) {
 
   ipcMain.handle('get-app-version', () => {
     return { success: true, version: app.getVersion(), name: app.getName() }
+  })
+
+  // Persistent config / storage (file-based, stable across installs)
+  ipcMain.handle('persist:get-config', async () => {
+    const cfg = await getPersistConfig()
+    return { success: true, config: cfg }
+  })
+
+  ipcMain.handle('persist:set-config', async (_event, patch) => {
+    try {
+      const next = await setPersistConfig(patch || {})
+      return { success: true, config: next }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'set config failed' }
+    }
+  })
+
+  ipcMain.handle('persist:open-data-root', async () => {
+    return openDataRootInExplorer()
+  })
+
+  ipcMain.handle('persist:kv-get', async (_event, key: string) => {
+    const v = await kvGetItem(String(key || ''))
+    return { success: true, value: v }
+  })
+
+  ipcMain.handle('persist:kv-set', async (_event, key: string, value: string) => {
+    await kvSetItem(String(key || ''), String(value ?? ''))
+    return { success: true }
+  })
+
+  ipcMain.handle('persist:kv-remove', async (_event, key: string) => {
+    await kvRemoveItem(String(key || ''))
+    return { success: true }
   })
 
   // --- Auto updater ---
@@ -51,7 +87,7 @@ export function registerIpcHandlers(window: BrowserWindow) {
   ipcMain.handle('download-and-save-image', async (event, { url, saveDir, fileName }) => {
     try {
       // 兼容相对路径：例如 settings 默认值为 "output"
-      const resolvedSaveDir = isAbsolute(saveDir) ? saveDir : resolve(saveDir)
+      const resolvedSaveDir = await resolveUserPath(saveDir, 'image')
 
       // 确保保存目录存在
       if (!existsSync(resolvedSaveDir)) {
@@ -116,7 +152,7 @@ export function registerIpcHandlers(window: BrowserWindow) {
   // 下载远端视频并保存到本地
   ipcMain.handle('download-and-save-video', async (event, { url, saveDir, fileName }) => {
     try {
-      const resolvedSaveDir = isAbsolute(saveDir) ? saveDir : resolve(saveDir)
+      const resolvedSaveDir = await resolveUserPath(saveDir, 'video')
       if (!existsSync(resolvedSaveDir)) {
         await mkdir(resolvedSaveDir, { recursive: true })
       }
@@ -163,7 +199,7 @@ export function registerIpcHandlers(window: BrowserWindow) {
     }
 
     try {
-      const resolvedSaveDir = isAbsolute(saveDir) ? saveDir : resolve(saveDir)
+       const resolvedSaveDir = await resolveUserPath(saveDir, 'video')
       if (!existsSync(resolvedSaveDir)) {
         await mkdir(resolvedSaveDir, { recursive: true })
       }
@@ -265,7 +301,7 @@ export function registerIpcHandlers(window: BrowserWindow) {
     }
 
     try {
-      const resolvedSaveDir = isAbsolute(saveDir) ? saveDir : resolve(saveDir)
+      const resolvedSaveDir = await resolveUserPath(saveDir, 'image')
       if (!existsSync(resolvedSaveDir)) {
         await mkdir(resolvedSaveDir, { recursive: true })
       }

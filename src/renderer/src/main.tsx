@@ -5,10 +5,12 @@ import App from './App'
 import './index.css'
 
 // 桌面软件通常使用 HashRouter 以防止本地文件路径解析错误
+const Root = (
+  <HashRouter>
+    <App />
+  </HashRouter>
+)
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <HashRouter>
-      <App />
-    </HashRouter>
-  </React.StrictMode>,
+  import.meta.env.DEV ? <React.StrictMode>{Root}</React.StrictMode> : Root
 )
