@@ -44,7 +44,8 @@ function createWindow() {
     // mainWindow.webContents.openDevTools()
   } else {
     // 生产环境：加载打包后的 HTML 文件
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    // Vite build output is dist/index.html (see vite.config.ts outDir)
+    mainWindow.loadFile(join(__dirname, '../index.html'))
   }
 }
 
