@@ -8,7 +8,7 @@ import { readdir, stat } from 'fs/promises'
 import { sniffImage } from '../utils/sniffImage'
 import { sniffVideo } from '../utils/sniffVideo'
 import { checkForUpdates, downloadUpdate, openReleasesPage, quitAndInstall, setUpdateChannel, type UpdateChannel } from '../updater'
-import { getPersistConfig, openDataRootInExplorer, resolveUserPath, setPersistConfig } from '../persist/config'
+import { getPersistConfig, getPersistConfigWarning, openDataRootInExplorer, resolveUserPath, setPersistConfig } from '../persist/config'
 import { kvGetItem, kvRemoveItem, kvSetItem } from '../persist/kv'
 
 // 注册所有主进程与渲染进程的通信事件
@@ -26,7 +26,8 @@ export function registerIpcHandlers(window: BrowserWindow) {
   // Persistent config / storage (file-based, stable across installs)
   ipcMain.handle('persist:get-config', async () => {
     const cfg = await getPersistConfig()
-    return { success: true, config: cfg }
+    const warning = getPersistConfigWarning()
+    return { success: true, config: cfg, warning: warning || undefined }
   })
 
   ipcMain.handle('persist:set-config', async (_event, patch) => {

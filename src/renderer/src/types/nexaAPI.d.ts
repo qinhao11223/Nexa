@@ -11,7 +11,7 @@ declare global {
       minimizeWindow: () => void
 
       // File-based persistence config
-      getPersistConfig: () => Promise<{ success: boolean, config: { setupCompleted: boolean, dataRoot: string, imageOutputDirectory: string, videoOutputDirectory: string } }>
+      getPersistConfig: () => Promise<{ success: boolean, config: { setupCompleted: boolean, dataRoot: string, imageOutputDirectory: string, videoOutputDirectory: string }, warning?: string }>
       setPersistConfig: (patch: any) => Promise<{ success: boolean, config?: { setupCompleted: boolean, dataRoot: string, imageOutputDirectory: string, videoOutputDirectory: string }, error?: string }>
       openDataRoot: () => Promise<{ ok: boolean, path?: string }>
       persistGetItem: (key: string) => Promise<{ success: boolean, value: string | null }>

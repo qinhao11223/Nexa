@@ -35,6 +35,9 @@ export default function FirstRunWizard() {
         setDataRoot(String(c.dataRoot || ''))
         setImgDir(String(c.imageOutputDirectory || ''))
         setVidDir(String(c.videoOutputDirectory || ''))
+        if (r?.warning) {
+          uiToast('info', String(r.warning || ''))
+        }
         if (!c.setupCompleted) setOpen(true)
       } catch {
         // ignore

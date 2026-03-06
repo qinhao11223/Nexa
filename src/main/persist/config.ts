@@ -1,6 +1,6 @@
 import { app, shell } from 'electron'
 import { join, resolve, isAbsolute, dirname } from 'path'
-import { mkdir, readFile, rename, writeFile } from 'fs/promises'
+import { mkdir, readFile, rename, writeFile, copyFile } from 'fs/promises'
 import { existsSync } from 'fs'
 
 export type PersistConfig = {
@@ -73,6 +73,47 @@ function assertValidDataRoot(absDataRoot: string) {
 }
 
 let cached: PersistConfig | null = null
+let cachedWarning: string | null = null
+
+export function getPersistConfigWarning(): string | null {
+  return cachedWarning
+}
+
+async function readJsonFile(fp: string): Promise<any | null> {
+  try {
+    if (!existsSync(fp)) return null
+    const raw = await readFile(fp, 'utf8')
+    if (!raw || !raw.trim()) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+async function writeJsonFileSafe(fp: string, obj: any) {
+  const dir = dirname(fp)
+  await ensureDir(dir)
+
+  // backup previous
+  try {
+    if (existsSync(fp)) {
+      await copyFile(fp, fp + '.bak')
+    }
+  } catch {
+    // ignore
+  }
+
+  const tmp = fp + '.tmp'
+  const buf = JSON.stringify(obj, null, 2)
+  await writeFile(tmp, buf, 'utf8')
+  try {
+    await rename(tmp, fp)
+  } catch {
+    // fallback
+    await writeFile(fp, buf, 'utf8')
+    try { await rename(tmp, fp + '.tmp.bak') } catch { /* ignore */ }
+  }
+}
 
 async function ensureDir(p: string) {
   if (!p) return
@@ -109,24 +150,42 @@ export async function getPersistConfig(): Promise<PersistConfig> {
       }
     }
 
-    if (!existsSync(fp)) {
+    let parsed = await readJsonFile(fp)
+    if (!parsed) {
+      parsed = await readJsonFile(fp + '.bak')
+    }
+    if (!parsed) {
+      // Last resort: legacy config (might still exist for users upgrading)
+      const legacy = legacyConfigPath()
+      parsed = await readJsonFile(legacy)
+      if (!parsed) parsed = await readJsonFile(legacy + '.bak')
+      if (parsed) {
+        try {
+          await writeJsonFileSafe(fp, parsed)
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    if (!parsed) {
       await ensureConfigDirs(d)
       await ensureDir(configDir())
-      await writeFile(fp, JSON.stringify(d, null, 2), 'utf8')
+      await writeJsonFileSafe(fp, d)
       cached = d
+      cachedWarning = null
       return d
     }
-    const raw = await readFile(fp, 'utf8')
-    const parsed = JSON.parse(raw)
 
     let root = normalizeAbsPath(parsed?.dataRoot) || d.dataRoot
     let setupCompleted = Boolean(parsed?.setupCompleted)
+
+    cachedWarning = null
     try {
       assertValidDataRoot(root)
-    } catch {
-      // If previous config points to an unsafe location (eg. install dir),
-      // fallback to default and force user to re-run setup.
-      root = d.dataRoot
+    } catch (e: any) {
+      // Keep user-selected path, but force re-setup to pick a safer location.
+      cachedWarning = String(e?.message || '数据存储位置不安全')
       setupCompleted = false
     }
 
@@ -145,11 +204,12 @@ export async function getPersistConfig(): Promise<PersistConfig> {
     await ensureConfigDirs(d)
     try {
       await ensureDir(configDir())
-      await writeFile(fp, JSON.stringify(d, null, 2), 'utf8')
+      await writeJsonFileSafe(fp, d)
     } catch {
       // ignore
     }
     cached = d
+    cachedWarning = null
     return d
   }
 }
@@ -184,8 +244,9 @@ export async function setPersistConfig(patch: Partial<PersistConfig>) {
 
   await ensureConfigDirs(next)
   await ensureDir(configDir())
-  await writeFile(configPath(), JSON.stringify(next, null, 2), 'utf8')
+  await writeJsonFileSafe(configPath(), next)
   cached = next
+  cachedWarning = null
   return next
 }
 
