@@ -8,6 +8,19 @@ type KvFile = {
   items: Record<string, string>
 }
 
+// Serialize read-modify-write operations to avoid lost updates when
+// multiple IPC calls persist state concurrently.
+let opQueue: Promise<any> = Promise.resolve()
+
+function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+  const p = opQueue.then(fn, fn)
+  opQueue = p.then(
+    () => undefined,
+    () => undefined
+  )
+  return p
+}
+
 async function kvPath() {
   const cfg = await getPersistConfig()
   return join(cfg.dataRoot, 'state', 'persist.json')
@@ -67,6 +80,8 @@ async function save(file: KvFile) {
 }
 
 export async function kvGetItem(key: string): Promise<string | null> {
+  // Ensure any queued writes are flushed first
+  await opQueue
   const k = String(key || '')
   if (!k) return null
   const f = await load()
@@ -74,18 +89,22 @@ export async function kvGetItem(key: string): Promise<string | null> {
 }
 
 export async function kvSetItem(key: string, value: string): Promise<void> {
-  const k = String(key || '')
-  if (!k) return
-  const v = String(value ?? '')
-  const f = await load()
-  f.items[k] = v
-  await save(f)
+  await enqueue(async () => {
+    const k = String(key || '')
+    if (!k) return
+    const v = String(value ?? '')
+    const f = await load()
+    f.items[k] = v
+    await save(f)
+  })
 }
 
 export async function kvRemoveItem(key: string): Promise<void> {
-  const k = String(key || '')
-  if (!k) return
-  const f = await load()
-  delete f.items[k]
-  await save(f)
+  await enqueue(async () => {
+    const k = String(key || '')
+    if (!k) return
+    const f = await load()
+    delete f.items[k]
+    await save(f)
+  })
 }
