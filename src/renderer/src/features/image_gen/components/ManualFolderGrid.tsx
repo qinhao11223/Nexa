@@ -9,6 +9,7 @@ import { formatRequestDebugForCopy } from '../utils/requestDebug'
 import type { RequestDebug } from '../../../core/api/image'
 import { uiAlert, uiConfirm, uiTextViewer } from '../../ui/dialogStore'
 import { uiToast } from '../../ui/toastStore'
+import { kvGetJsonMigrate, kvGetStringMigrate, kvRemove, kvSetJson } from '../../../core/persist/kvClient'
 
 const CLEAR_SELECTION_EVENT = 'nexa-image-clear-selection-v1'
 const PENDING_OPEN_FOLDER_KEY = 'nexa-image-manual-open-folder-v1'
@@ -68,27 +69,12 @@ function parseNodeId(id: RootNodeId): { type: 'task' | 'folder', id: string } | 
   return { type, id: m[2] }
 }
 
-function loadLayout(storageKey: string): ManualLayout {
-  try {
-    const raw = localStorage.getItem(storageKey)
-    if (!raw) return { root: [], folders: {} }
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object') return { root: [], folders: {} }
-    return {
-      root: Array.isArray(parsed.root) ? parsed.root : [],
-      folders: parsed.folders && typeof parsed.folders === 'object' ? parsed.folders : {}
-    }
-  } catch {
-    return { root: [], folders: {} }
-  }
-}
-
-function saveLayout(storageKey: string, layout: ManualLayout) {
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(layout))
-  } catch {
-    // 忽略
-  }
+async function loadLayoutPersisted(storageKey: string): Promise<ManualLayout> {
+  const loaded = await kvGetJsonMigrate<ManualLayout>(storageKey, { root: [], folders: {} })
+  if (!loaded || typeof loaded !== 'object') return { root: [], folders: {} }
+  const root = Array.isArray((loaded as any).root) ? (loaded as any).root : []
+  const folders = ((loaded as any).folders && typeof (loaded as any).folders === 'object') ? (loaded as any).folders : {}
+  return { root, folders }
 }
 
 function reconcileLayout(layout: ManualLayout, tasks: ManualGridTask[]): ManualLayout {
@@ -285,7 +271,7 @@ export default function ManualFolderGrid(props: {
     tasksRef.current = tasks
   }, [tasks])
 
-  const [layout, setLayout] = useState<ManualLayout>(() => reconcileLayout(loadLayout(storageKey), tasks))
+  const [layout, setLayout] = useState<ManualLayout>(() => reconcileLayout({ root: [], folders: {} }, tasks))
   const [openFolderId, setOpenFolderId] = useState<string | null>(initialOpenFolderId || lockToFolderId || null)
 
   // 桌面式选择：框选/多选
@@ -332,30 +318,38 @@ export default function ManualFolderGrid(props: {
 
   // refresh：重新加载布局（并关闭文件夹），同时做 reconcile
   useEffect(() => {
+    let alive = true
     setSelectedIds([])
     setRenamingFolderId(null)
 
-    const nextLayout = reconcileLayout(loadLayout(storageKey), tasksRef.current)
-    setLayout(nextLayout)
+    ;(async () => {
+      const loaded = await loadLayoutPersisted(storageKey)
+      if (!alive) return
 
-    // 外部锁定打开的文件夹优先级最高
-    const forced = lockToFolderId || initialOpenFolderId
-    if (forced && nextLayout.folders && nextLayout.folders[forced]) {
-      setOpenFolderId(forced)
-      return
-    }
+      const nextLayout = reconcileLayout(loaded, tasksRef.current)
+      setLayout(nextLayout)
 
-    setOpenFolderId(null)
-
-    // 支持外部请求“打开某个手动文件夹”（用于自动叠放模式下仍可打开用户文件夹）
-    try {
-      const fid = localStorage.getItem(pendingOpenFolderKey)
-      if (fid && nextLayout.folders && nextLayout.folders[fid]) {
-        setOpenFolderId(fid)
+      // 外部锁定打开的文件夹优先级最高
+      const forced = lockToFolderId || initialOpenFolderId
+      if (forced && nextLayout.folders && nextLayout.folders[forced]) {
+        setOpenFolderId(forced)
+      } else {
+        setOpenFolderId(null)
       }
-      if (fid) localStorage.removeItem(pendingOpenFolderKey)
-    } catch {
-      // 忽略
+
+      // 支持外部请求“打开某个手动文件夹”
+      const fid = (await kvGetStringMigrate(pendingOpenFolderKey)) || ''
+      const trimmed = String(fid || '').trim()
+      if (trimmed && nextLayout.folders && nextLayout.folders[trimmed]) {
+        setOpenFolderId(trimmed)
+      }
+      if (trimmed) {
+        await kvRemove(pendingOpenFolderKey)
+      }
+    })()
+
+    return () => {
+      alive = false
     }
   }, [refreshToken, lockToFolderId, initialOpenFolderId, storageKey, pendingOpenFolderKey])
 
@@ -710,7 +704,10 @@ export default function ManualFolderGrid(props: {
 
   // 持久化
   useEffect(() => {
-    saveLayout(storageKey, layout)
+    const t = window.setTimeout(() => {
+      void kvSetJson(storageKey, layout)
+    }, 420)
+    return () => window.clearTimeout(t)
   }, [layout, storageKey])
 
   const sensors = useSensors(

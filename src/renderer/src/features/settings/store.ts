@@ -81,6 +81,21 @@ interface SettingsState {
   imageProviderId: string | null
   videoProviderId: string | null
   canvasProviderId: string | null
+
+  // 快捷应用（小应用/工作流）默认使用哪个 API 网站
+  // 为空时回退到 activeProviderId
+  appsProviderId: string | null
+  setAppsProvider: (id: string | null) => void
+
+  // 快捷应用：收藏/启用/排序
+  quickAppsPinned: string[]
+  toggleQuickAppPinned: (appId: string) => void
+
+  quickAppsEnabled: Record<string, boolean>
+  setQuickAppEnabled: (appId: string, enabled: boolean) => void
+
+  quickAppsOrder: string[]
+  setQuickAppsOrder: (order: string[]) => void
   
   // Actions
   addProvider: (name: string, baseUrl: string) => void
@@ -128,6 +143,29 @@ export const useSettingsStore = create<SettingsState>()(
       imageProviderId: null,
       videoProviderId: null,
       canvasProviderId: null,
+
+      appsProviderId: null,
+      setAppsProvider: (id) => set({ appsProviderId: id || null }),
+
+      quickAppsPinned: [],
+      toggleQuickAppPinned: (appId) => set((state) => {
+        const id = String(appId || '').trim()
+        if (!id) return state as any
+        const cur = Array.isArray(state.quickAppsPinned) ? state.quickAppsPinned : []
+        const exists = cur.includes(id)
+        return { quickAppsPinned: exists ? cur.filter(x => x !== id) : [id, ...cur] }
+      }),
+
+      quickAppsEnabled: {},
+      setQuickAppEnabled: (appId, enabled) => set((state) => {
+        const id = String(appId || '').trim()
+        if (!id) return state as any
+        const cur = (state.quickAppsEnabled && typeof state.quickAppsEnabled === 'object') ? state.quickAppsEnabled : {}
+        return { quickAppsEnabled: { ...cur, [id]: Boolean(enabled) } }
+      }),
+
+      quickAppsOrder: [],
+      setQuickAppsOrder: (order) => set({ quickAppsOrder: Array.isArray(order) ? order.map(x => String(x || '')).filter(Boolean) : [] }),
 
       addProvider: (name, baseUrl) => set((state) => {
         const defaultKeyId = `key_${Date.now()}_default`
@@ -222,7 +260,7 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'nexa-settings-v2', // 更换本地存储 key，这会让旧的错误数据失效，达到纯净的“默认为空”状态
       storage: fileJSONStorage,
-       version: 8,
+       version: 9,
       migrate: (persistedState: any) => {
         // 迁移：早期版本把 outputDirectory 写死在 C 盘用户目录里，项目转移到其它盘符后会导致保存/预览异常
         // 这里仅对“看起来像旧默认值”的路径做定向修复，避免覆盖用户自己配置的其它绝对路径
@@ -288,16 +326,24 @@ export const useSettingsStore = create<SettingsState>()(
 
             // 迁移：各主要功能独立 API 网站选择（默认跟随 activeProviderId）
             const activeId = typeof persistedState.activeProviderId === 'string' ? persistedState.activeProviderId : null
-            if (typeof persistedState.imageProviderId !== 'string') persistedState.imageProviderId = activeId
-            if (typeof persistedState.videoProviderId !== 'string') persistedState.videoProviderId = activeId
-            if (typeof persistedState.canvasProviderId !== 'string') persistedState.canvasProviderId = activeId
+             if (typeof persistedState.imageProviderId !== 'string') persistedState.imageProviderId = activeId
+             if (typeof persistedState.videoProviderId !== 'string') persistedState.videoProviderId = activeId
+             if (typeof persistedState.canvasProviderId !== 'string') persistedState.canvasProviderId = activeId
 
-            if (persistedState.updateChannel !== 'stable' && persistedState.updateChannel !== 'beta') {
-              persistedState.updateChannel = 'stable'
-            }
-          }
-          return persistedState
-        }
-    }
+             // 迁移：快捷应用默认 API 网站（默认跟随 activeProviderId，使用 null 表示跟随）
+             if (typeof persistedState.appsProviderId !== 'string') persistedState.appsProviderId = null
+
+             // 迁移：快捷应用状态
+             if (!Array.isArray(persistedState.quickAppsPinned)) persistedState.quickAppsPinned = []
+             if (!persistedState.quickAppsEnabled || typeof persistedState.quickAppsEnabled !== 'object') persistedState.quickAppsEnabled = {}
+             if (!Array.isArray(persistedState.quickAppsOrder)) persistedState.quickAppsOrder = []
+
+             if (persistedState.updateChannel !== 'stable' && persistedState.updateChannel !== 'beta') {
+               persistedState.updateChannel = 'stable'
+             }
+           }
+           return persistedState
+         }
+     }
   )
 )

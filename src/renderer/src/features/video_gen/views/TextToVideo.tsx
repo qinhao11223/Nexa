@@ -11,7 +11,7 @@ import VideoDesktopGrid from '../components/desktop/VideoDesktopGrid'
 import VideoPreviewModal from '../components/VideoPreviewModal'
 import ConfirmModal from '../components/ConfirmModal'
 import { useVideoGenStore } from '../store'
-import { loadVideoUi, saveVideoUi } from '../utils/persistUi'
+import { loadVideoUiPersisted, saveVideoUiPersisted } from '../utils/persistUi'
 import PromptLinkPanel from '../../image_gen/components/PromptLinkPanel'
 import CreativeCollectionsPanel from '../../image_gen/components/CreativeCollectionsPanel'
 import { takePendingPromptLink } from '../../creative_library/promptLink'
@@ -43,21 +43,19 @@ export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) 
   const pinnedVideoModels = activeProvider?.pinnedVideoModels || []
   const pinnedPromptModels = activeProvider?.pinnedPromptModels || []
 
-  const initialUi = useMemo(() => {
-    return loadVideoUi('t2v', {
-      prompt: '',
-      durationSec: 5,
-      aspectRatio: '16:9',
-      batchCount: 1,
-      enhancePrompt: false,
-      enableUpsample: false
-    })
-  }, [])
+  const defaults = useMemo(() => ({
+    prompt: '',
+    durationSec: 5,
+    aspectRatio: '16:9' as const,
+    batchCount: 1,
+    enhancePrompt: false,
+    enableUpsample: false
+  }), [])
 
-  const [prompt, setPrompt] = useState(initialUi.prompt)
-  const [durationSec, setDurationSec] = useState(initialUi.durationSec)
-  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>(initialUi.aspectRatio)
-  const [batchCount, setBatchCount] = useState(initialUi.batchCount)
+  const [prompt, setPrompt] = useState(defaults.prompt)
+  const [durationSec, setDurationSec] = useState(defaults.durationSec)
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>(defaults.aspectRatio)
+  const [batchCount, setBatchCount] = useState(defaults.batchCount)
 
   const [optimizePreference, setOptimizePreference] = useState('')
   const [injectOptimizeCustomText, setInjectOptimizeCustomText] = useState('')
@@ -65,13 +63,40 @@ export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) 
 
   const isVeoModel = useMemo(() => /^\s*veo/i.test(currentVideoModel), [currentVideoModel])
   const hasCjk = useMemo(() => /[\u4e00-\u9fff]/.test(prompt), [prompt])
-  const [enhancePrompt, setEnhancePrompt] = useState(initialUi.enhancePrompt)
-  const [enableUpsample, setEnableUpsample] = useState(initialUi.enableUpsample)
+  const [enhancePrompt, setEnhancePrompt] = useState(defaults.enhancePrompt)
+  const [enableUpsample, setEnableUpsample] = useState(defaults.enableUpsample)
+
+  const [uiHydrated, setUiHydrated] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const s = await loadVideoUiPersisted('t2v', defaults)
+        if (!alive) return
+        setPrompt(s.prompt)
+        setDurationSec(s.durationSec)
+        setAspectRatio(s.aspectRatio)
+        setBatchCount(s.batchCount)
+        setEnhancePrompt(s.enhancePrompt)
+        setEnableUpsample(s.enableUpsample)
+      } finally {
+        if (alive) setUiHydrated(true)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [defaults])
 
   // persist UI (t2v)
   useEffect(() => {
-    saveVideoUi('t2v', { prompt, durationSec, aspectRatio, batchCount, enhancePrompt, enableUpsample })
-  }, [prompt, durationSec, aspectRatio, batchCount, enhancePrompt, enableUpsample])
+    if (!uiHydrated) return
+    const t = window.setTimeout(() => {
+      void saveVideoUiPersisted('t2v', { prompt, durationSec, aspectRatio, batchCount, enhancePrompt, enableUpsample })
+    }, 360)
+    return () => window.clearTimeout(t)
+  }, [uiHydrated, prompt, durationSec, aspectRatio, batchCount, enhancePrompt, enableUpsample])
 
   const [previewTaskId, setPreviewTaskId] = useState<string | null>(null)
   const previewTask = useMemo(() => t2vTasks.find(t => t.id === previewTaskId) || null, [t2vTasks, previewTaskId])

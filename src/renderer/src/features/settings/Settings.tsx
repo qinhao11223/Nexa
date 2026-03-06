@@ -2,13 +2,14 @@ import React, { useState } from 'react'
 import ApiSettings from './views/ApiSettings'
 import CanvasSettings from './views/CanvasSettings'
 import VideoSettings from './views/VideoSettings'
+import AppsSettings from './views/AppsSettings'
 import { useSettingsStore } from './store'
 import './styles/settings.css'
 import Toggle from './components/Toggle'
 import { uiToast } from '../ui/toastStore'
 
 export default function SettingsView() {
-  const [activeTab, setActiveTab] = useState<'api' | 'canvas' | 'video' | 'general' | 'about'>('api')
+  const [activeTab, setActiveTab] = useState<'api' | 'canvas' | 'video' | 'apps' | 'general' | 'about'>('api')
   const { outputDirectory, setOutputDirectory, autoSaveEnabled, setAutoSaveEnabled, theme, setTheme, updateChannel, setUpdateChannel } = useSettingsStore()
 
   const [appVersion, setAppVersion] = React.useState<string>('')
@@ -78,6 +79,13 @@ export default function SettingsView() {
         >
           视频
         </div>
+
+        <div 
+          className={`st-nav-item ${activeTab === 'apps' ? 'active' : ''}`}
+          onClick={() => setActiveTab('apps')}
+        >
+          应用
+        </div>
         <div 
           className={`st-nav-item ${activeTab === 'general' ? 'active' : ''}`}
           onClick={() => setActiveTab('general')}
@@ -99,6 +107,8 @@ export default function SettingsView() {
         {activeTab === 'canvas' && <CanvasSettings />}
 
         {activeTab === 'video' && <VideoSettings />}
+
+        {activeTab === 'apps' && <AppsSettings />}
         
         {activeTab === 'general' && (
           <div className="st-form-container">

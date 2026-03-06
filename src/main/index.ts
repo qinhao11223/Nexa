@@ -1,4 +1,4 @@
-import { app, BrowserWindow, protocol, net } from 'electron'
+import { app, BrowserWindow, protocol, net, screen } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
 import { open, stat } from 'fs/promises'
@@ -7,6 +7,7 @@ import { Readable } from 'stream'
 import { sniffImage } from './utils/sniffImage'
 import { sniffVideo } from './utils/sniffVideo'
 import { initUpdater } from './updater'
+import { kvGetItem, kvSetItem } from './persist/kv'
 
 // 注册自定义协议的权限（需要在 app ready 之前）
 protocol.registerSchemesAsPrivileged([
@@ -15,10 +16,124 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null
 
-function createWindow() {
+const WINDOW_STATE_KEY = 'window:main'
+const DEFAULT_BOUNDS = { width: 1200, height: 800 }
+const MIN_BOUNDS = { width: 860, height: 640 }
+
+type WindowState = {
+  bounds: { x: number, y: number, width: number, height: number }
+  isMaximized?: boolean
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n))
+}
+
+function isFiniteNum(x: any): x is number {
+  return typeof x === 'number' && Number.isFinite(x)
+}
+
+function coerceBounds(raw: any): WindowState['bounds'] | null {
+  const b = raw && typeof raw === 'object' ? raw : null
+  if (!b) return null
+  const x = Number(b.x)
+  const y = Number(b.y)
+  const width = Number(b.width)
+  const height = Number(b.height)
+  if (![x, y, width, height].every(isFiniteNum)) return null
+  if (width < 100 || height < 100) return null
+  return { x, y, width, height }
+}
+
+function isMostlyVisible(bounds: WindowState['bounds']) {
+  const displays = screen.getAllDisplays()
+  for (const d of displays) {
+    const wa = d.workArea
+    const ix0 = Math.max(bounds.x, wa.x)
+    const iy0 = Math.max(bounds.y, wa.y)
+    const ix1 = Math.min(bounds.x + bounds.width, wa.x + wa.width)
+    const iy1 = Math.min(bounds.y + bounds.height, wa.y + wa.height)
+    const iw = Math.max(0, ix1 - ix0)
+    const ih = Math.max(0, iy1 - iy0)
+    // At least a reasonable portion of the window is inside some display.
+    if (iw >= 160 && ih >= 120) return true
+  }
+  return false
+}
+
+function normalizeBounds(bounds: WindowState['bounds']) {
+  const primary = screen.getPrimaryDisplay().workArea
+  const maxW = Math.max(MIN_BOUNDS.width, primary.width)
+  const maxH = Math.max(MIN_BOUNDS.height, primary.height)
+
+  const width = clamp(bounds.width, MIN_BOUNDS.width, maxW)
+  const height = clamp(bounds.height, MIN_BOUNDS.height, maxH)
+
+  let x = bounds.x
+  let y = bounds.y
+
+  if (!isMostlyVisible({ x, y, width, height })) {
+    x = Math.round(primary.x + (primary.width - width) / 2)
+    y = Math.round(primary.y + (primary.height - height) / 2)
+  }
+
+  return { x, y, width, height }
+}
+
+async function loadWindowState(): Promise<WindowState | null> {
+  try {
+    const raw = await kvGetItem(WINDOW_STATE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const bounds = coerceBounds(parsed?.bounds)
+    if (!bounds) return null
+    return { bounds, isMaximized: Boolean(parsed?.isMaximized) }
+  } catch {
+    return null
+  }
+}
+
+async function saveWindowState(win: BrowserWindow) {
+  try {
+    const isMaximized = win.isMaximized()
+    const bounds = isMaximized ? win.getNormalBounds() : win.getBounds()
+    const payload: WindowState = {
+      bounds: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
+      isMaximized
+    }
+    await kvSetItem(WINDOW_STATE_KEY, JSON.stringify(payload))
+  } catch {
+    // ignore
+  }
+}
+
+function makeDebounced(fn: () => void, waitMs: number) {
+  let t: NodeJS.Timeout | null = null
+  return () => {
+    if (t) clearTimeout(t)
+    t = setTimeout(() => {
+      t = null
+      fn()
+    }, waitMs)
+  }
+}
+
+async function createWindow() {
+  const saved = await loadWindowState()
+  const start = saved?.bounds
+    ? normalizeBounds(saved.bounds)
+    : normalizeBounds({
+      x: 0,
+      y: 0,
+      width: DEFAULT_BOUNDS.width,
+      height: DEFAULT_BOUNDS.height
+    })
+
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    x: start.x,
+    y: start.y,
+    width: start.width,
+    height: start.height,
     title: 'Nexa',
     show: false,
     backgroundColor: '#0b0e14',
@@ -40,6 +155,14 @@ function createWindow() {
   // 自动更新（仅生产环境可用；事件会推送给渲染进程）
   initUpdater(mainWindow)
 
+  if (saved?.isMaximized) {
+    try {
+      mainWindow.maximize()
+    } catch {
+      // ignore
+    }
+  }
+
   if (process.env.VITE_DEV_SERVER_URL) {
     // 开发环境：加载 Vite 提供的本地服务
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
@@ -53,6 +176,30 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     if (!mainWindow) return
     mainWindow.show()
+  })
+
+  const debouncedSave = makeDebounced(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    void saveWindowState(mainWindow)
+  }, 320)
+
+  mainWindow.on('resize', () => {
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) return
+    if (mainWindow.isMaximized()) return
+    debouncedSave()
+  })
+  mainWindow.on('move', () => {
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) return
+    if (mainWindow.isMaximized()) return
+    debouncedSave()
+  })
+  mainWindow.on('maximize', () => debouncedSave())
+  mainWindow.on('unmaximize', () => debouncedSave())
+  mainWindow.on('close', () => {
+    if (!mainWindow) return
+    void saveWindowState(mainWindow)
   })
 }
 
@@ -185,7 +332,7 @@ app.whenReady().then(() => {
     }
   })
 
-  createWindow()
+  void createWindow()
 })
 
 // Windows 系统下，关闭所有窗口时退出应用
@@ -197,6 +344,6 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow()
+    void createWindow()
   }
 })

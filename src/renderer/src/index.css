@@ -613,11 +613,11 @@ html[data-theme='light'] .nx-update-actions {
 
 .home-header {
   text-align: center;
-  margin-bottom: 64px;
+  margin-bottom: clamp(26px, 5.5vh, 64px);
 }
 
 .home-title {
-  font-size: 3.5rem;
+  font-size: clamp(2.1rem, 4.8vw, 3.5rem);
   font-weight: 900;
   letter-spacing: 4px;
   margin-bottom: 16px;
@@ -628,22 +628,25 @@ html[data-theme='light'] .nx-update-actions {
 
 .home-subtitle {
   color: var(--text-muted);
-  font-size: 1.2rem;
+  font-size: clamp(0.95rem, 1.6vw, 1.2rem);
   letter-spacing: 1px;
 }
 
 .cards-wrapper {
-  display: flex;
-  gap: 32px;
-  justify-content: center;
+  width: min(1700px, 100%);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(12px, 2.2vw, 32px);
+  justify-items: center;
 }
 
 .feature-card {
   background-color: var(--panel-bg);
   border: 1px solid var(--border-light);
   border-radius: 16px;
-  width: 260px;
-  height: 320px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 13 / 16;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -651,6 +654,7 @@ html[data-theme='light'] .nx-update-actions {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   text-align: center;
+  min-width: 0;
 }
 
 .feature-card:hover {
@@ -664,14 +668,14 @@ html[data-theme='light'] .feature-card:hover {
 }
 
 .card-icon-wrapper {
-  width: 80px;
-  height: 80px;
+  width: clamp(54px, 5.2vw, 80px);
+  height: clamp(54px, 5.2vw, 80px);
   border-radius: 50%;
   background-color: rgba(255,255,255,0.03);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24px;
+  margin-bottom: clamp(14px, 1.8vw, 24px);
 }
 
 html[data-theme='light'] .card-icon-wrapper {
@@ -679,14 +683,15 @@ html[data-theme='light'] .card-icon-wrapper {
 }
 
 .feature-card h2 {
-  font-size: 1.3rem;
-  margin-bottom: 12px;
+  font-size: clamp(1.0rem, 1.4vw, 1.3rem);
+  margin-bottom: clamp(8px, 1.1vw, 12px);
   color: var(--text-main);
 }
 
 .feature-card p {
-  font-size: 0.9rem;
+  font-size: clamp(0.78rem, 1.0vw, 0.9rem);
   color: var(--text-muted);
+  padding: 0 clamp(8px, 1.2vw, 14px);
 }
 
 /* 不同主题的卡片颜色映射 */

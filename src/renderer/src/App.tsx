@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react'
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
-import { Home, Image, Video, Share2, Settings } from 'lucide-react'
+import { Home, Image, Video, Share2, Settings, LayoutGrid } from 'lucide-react'
 import { useSettingsStore } from './features/settings/store'
 
 // 主页面
@@ -11,6 +11,9 @@ const SettingsView = React.lazy(() => import('./features/settings/Settings'))
 const ImageGenView = React.lazy(() => import('./features/image_gen/ImageGen'))
 const VideoGenView = React.lazy(() => import('./features/video_gen/VideoGen'))
 const CanvasView = React.lazy(() => import('./features/node_canvas/CanvasApp'))
+const QuickAppsLayout = React.lazy(() => import('./features/quick_apps/QuickAppsRoute'))
+const QuickAppsList = React.lazy(() => import('./features/quick_apps/pages/QuickAppsList'))
+const QuickAppRunner = React.lazy(() => import('./features/quick_apps/pages/QuickAppRunner'))
 const CreativeLibraryRoute = React.lazy(() => import('./features/creative_library/CreativeLibraryRoute'))
 import DialogHost from './features/ui/DialogHost'
 import ToastHost from './features/ui/ToastHost'
@@ -28,7 +31,10 @@ function App() {
   }, [theme])
 
   // 辅助函数：判断当前路由是否激活
-  const isActive = (path: string) => location.pathname === path
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/'
+    return location.pathname === path || location.pathname.startsWith(path + '/')
+  }
 
   return (
     <div className="nexa-app-container">
@@ -52,6 +58,9 @@ function App() {
           <Link to="/canvas" className={isActive('/canvas') ? 'active' : ''}>
             <Share2 size={18} /> 画布
           </Link>
+          <Link to="/apps" className={isActive('/apps') ? 'active' : ''}>
+            <LayoutGrid size={18} /> 应用
+          </Link>
         </nav>
         
         {/* 右侧设置按钮 */}
@@ -71,6 +80,10 @@ function App() {
             <Route path="/video" element={<VideoGenView />} />
             <Route path="/library" element={<CreativeLibraryRoute />} />
             <Route path="/canvas" element={<CanvasView />} />
+            <Route path="/apps" element={<QuickAppsLayout />}>
+              <Route index element={<QuickAppsList />} />
+              <Route path=":appId" element={<QuickAppRunner />} />
+            </Route>
             <Route path="/settings" element={<SettingsView />} />
           </Routes>
         </Suspense>

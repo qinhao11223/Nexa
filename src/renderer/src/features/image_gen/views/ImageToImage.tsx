@@ -20,6 +20,7 @@ import { useImageGenStore } from '../store'
 import { formatRequestDebugForCopy } from '../utils/requestDebug'
 import { uiConfirm, uiTextViewer } from '../../ui/dialogStore'
 import { uiToast } from '../../ui/toastStore'
+import { kvGetJsonMigrate, kvSetJson } from '../../../core/persist/kvClient'
 
 export default function ImageToImage({ onSwitchMode }: { onSwitchMode: (mode: ImageGenMode) => void }) {
   const { providers, activeProviderId, imageProviderId, updateProvider, outputDirectory, autoSaveEnabled } = useSettingsStore()
@@ -48,40 +49,44 @@ export default function ImageToImage({ onSwitchMode }: { onSwitchMode: (mode: Im
 
   // 记住上次使用的参数（关闭/重启后仍保留）
   const UI_PARAMS_KEY = 'nexa-image-ui-params-i2i-v1'
-  const initialUi = useMemo(() => {
-    const defaults = { ratio: '1:1', res: '2K', prompt: '', isRightPanelOpen: true, batchCount: 1 }
-    try {
-      const raw = localStorage.getItem(UI_PARAMS_KEY)
-      if (!raw) return defaults
-      const p = JSON.parse(raw)
-      if (!p || typeof p !== 'object') return defaults
-      return {
-        ratio: typeof (p as any).ratio === 'string' ? (p as any).ratio : defaults.ratio,
-        res: typeof (p as any).res === 'string' ? (p as any).res : defaults.res,
-        prompt: typeof (p as any).prompt === 'string' ? (p as any).prompt : defaults.prompt,
-        isRightPanelOpen: typeof (p as any).isRightPanelOpen === 'boolean' ? (p as any).isRightPanelOpen : defaults.isRightPanelOpen,
-        batchCount: typeof (p as any).batchCount === 'number' ? (p as any).batchCount : defaults.batchCount
-      }
-    } catch {
-      return defaults
-    }
-  }, [])
+  const uiDefaults = useMemo(() => ({ ratio: '1:1', res: '2K', prompt: '', isRightPanelOpen: true, batchCount: 1 }), [])
 
-  const [ratio, setRatio] = useState(initialUi.ratio)
-  const [res, setRes] = useState(initialUi.res)
-  const [prompt, setPrompt] = useState(initialUi.prompt)
+  const [ratio, setRatio] = useState(uiDefaults.ratio)
+  const [res, setRes] = useState(uiDefaults.res)
+  const [prompt, setPrompt] = useState(uiDefaults.prompt)
   const [optimizePreference, setOptimizePreference] = useState<string>('')
   const [injectOptimizeCustomText, setInjectOptimizeCustomText] = useState<string>('')
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(Boolean(initialUi.isRightPanelOpen))
-  const [batchCount, setBatchCount] = useState(() => Math.max(1, Math.min(10, Number(initialUi.batchCount) || 1)))
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(Boolean(uiDefaults.isRightPanelOpen))
+  const [batchCount, setBatchCount] = useState(() => Math.max(1, Math.min(10, Number(uiDefaults.batchCount) || 1)))
+
+  const [uiHydrated, setUiHydrated] = useState(false)
 
   useEffect(() => {
-    try {
-      localStorage.setItem(UI_PARAMS_KEY, JSON.stringify({ ratio, res, prompt, isRightPanelOpen, batchCount }))
-    } catch {
-      // 忽略
+    let alive = true
+    ;(async () => {
+      const p = await kvGetJsonMigrate<any>(UI_PARAMS_KEY, uiDefaults as any)
+      if (!alive) return
+      if (p && typeof p === 'object') {
+        setRatio(typeof p.ratio === 'string' ? p.ratio : uiDefaults.ratio)
+        setRes(typeof p.res === 'string' ? p.res : uiDefaults.res)
+        setPrompt(typeof p.prompt === 'string' ? p.prompt : uiDefaults.prompt)
+        setIsRightPanelOpen(typeof p.isRightPanelOpen === 'boolean' ? p.isRightPanelOpen : uiDefaults.isRightPanelOpen)
+        setBatchCount(Math.max(1, Math.min(10, Number(p.batchCount) || uiDefaults.batchCount)))
+      }
+      setUiHydrated(true)
+    })()
+    return () => {
+      alive = false
     }
-  }, [ratio, res, prompt, isRightPanelOpen, batchCount])
+  }, [UI_PARAMS_KEY, uiDefaults])
+
+  useEffect(() => {
+    if (!uiHydrated) return
+    const t = window.setTimeout(() => {
+      void kvSetJson(UI_PARAMS_KEY, { ratio, res, prompt, isRightPanelOpen, batchCount })
+    }, 360)
+    return () => window.clearTimeout(t)
+  }, [uiHydrated, ratio, res, prompt, isRightPanelOpen, batchCount, UI_PARAMS_KEY])
   
   const [isOptimizing, setIsOptimizing] = useState(false)
 
@@ -164,47 +169,68 @@ export default function ImageToImage({ onSwitchMode }: { onSwitchMode: (mode: Im
   const AUTO_STACK_NAME_KEY = 'nexa-image-auto-stack-names-i2i-v1'
   const MANUAL_LAYOUT_KEY = 'nexa-image-manual-layout-i2i-v1'
 
+  const [canvasHydrated, setCanvasHydrated] = useState(false)
+  const [namesHydrated, setNamesHydrated] = useState(false)
+  const [manualLayoutRaw, setManualLayoutRaw] = useState<any>(null)
+
   // 画布工具：自动叠放 / 隐藏名称 / 一键刷新（i2i 独立持久化）
   const [autoStackEnabled, setAutoStackEnabled] = useState(() => {
-    try {
-      const raw = localStorage.getItem(CANVAS_UI_KEY)
-      const p = raw ? JSON.parse(raw) : null
-      return Boolean(p?.autoStackEnabled)
-    } catch {
-      return false
-    }
+    return false
   })
   const [hideNameEnabled, setHideNameEnabled] = useState(() => {
-    try {
-      const raw = localStorage.getItem(CANVAS_UI_KEY)
-      const p = raw ? JSON.parse(raw) : null
-      return Boolean(p?.hideNameEnabled)
-    } catch {
-      return false
-    }
+    return false
   })
   const [openGroupKey, setOpenGroupKey] = useState<string | null>(() => {
-    try {
-      const raw = localStorage.getItem(CANVAS_UI_KEY)
-      const p = raw ? JSON.parse(raw) : null
-      const v = p?.openGroupKey
-      return typeof v === 'string' && v.trim() ? v : null
-    } catch {
-      return null
-    }
+    return null
   })
 
   const [manualRefreshToken, setManualRefreshToken] = useState(0)
 
+  // hydrate: canvas tools / names / manual layout
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const p = await kvGetJsonMigrate<any>(CANVAS_UI_KEY, {})
+      if (!alive) return
+      setAutoStackEnabled(Boolean(p?.autoStackEnabled))
+      setHideNameEnabled(Boolean(p?.hideNameEnabled))
+      const v = p?.openGroupKey
+      setOpenGroupKey(typeof v === 'string' && v.trim() ? v : null)
+      setCanvasHydrated(true)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const p = await kvGetJsonMigrate<any>(AUTO_STACK_NAME_KEY, {})
+      if (!alive) return
+      setAutoStackNameMap(p && typeof p === 'object' ? p : {})
+      setNamesHydrated(true)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const p = await kvGetJsonMigrate<any>(MANUAL_LAYOUT_KEY, null)
+      if (!alive) return
+      setManualLayoutRaw(p && typeof p === 'object' ? p : null)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [manualRefreshToken])
+
   // 自动叠放文件夹名称：用户可重命名；未命名时显示优化偏好
   const [autoStackNameMap, setAutoStackNameMap] = useState<Record<string, string>>(() => {
-    try {
-      const raw = localStorage.getItem(AUTO_STACK_NAME_KEY)
-      const parsed = raw ? JSON.parse(raw) : {}
-      return (parsed && typeof parsed === 'object') ? parsed : {}
-    } catch {
-      return {}
-    }
+    return {}
   })
   const [renamingAutoKey, setRenamingAutoKey] = useState<string | null>(null)
   const [renameAutoValue, setRenameAutoValue] = useState<string>('')
@@ -267,66 +293,58 @@ export default function ImageToImage({ onSwitchMode }: { onSwitchMode: (mode: Im
 
   // 画布工具持久化
   useEffect(() => {
-    try {
-      localStorage.setItem(CANVAS_UI_KEY, JSON.stringify({ autoStackEnabled, hideNameEnabled, openGroupKey }))
-    } catch {
-      // 忽略
-    }
-  }, [autoStackEnabled, hideNameEnabled, openGroupKey])
+    if (!canvasHydrated) return
+    const t = window.setTimeout(() => {
+      void kvSetJson(CANVAS_UI_KEY, { autoStackEnabled, hideNameEnabled, openGroupKey })
+    }, 320)
+    return () => window.clearTimeout(t)
+  }, [canvasHydrated, autoStackEnabled, hideNameEnabled, openGroupKey])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(AUTO_STACK_NAME_KEY, JSON.stringify(autoStackNameMap))
-    } catch {
-      // 忽略
-    }
-  }, [autoStackNameMap])
+    if (!namesHydrated) return
+    const t = window.setTimeout(() => {
+      void kvSetJson(AUTO_STACK_NAME_KEY, autoStackNameMap)
+    }, 360)
+    return () => window.clearTimeout(t)
+  }, [namesHydrated, autoStackNameMap])
 
   // 手动文件夹（用户自建）在自动叠放模式下也需要显示
   const manualLayoutInfoForAuto = useMemo(() => {
-    try {
-      const raw = localStorage.getItem(MANUAL_LAYOUT_KEY)
-      if (!raw) return { folders: [] as { id: string, name: string, count: number, coverUrl?: string }[], taskIdSet: new Set<string>() }
-      const parsed = JSON.parse(raw)
-      const root: string[] = Array.isArray(parsed?.root) ? parsed.root : []
-      const foldersObj = parsed?.folders && typeof parsed.folders === 'object' ? parsed.folders : {}
-
-      const out: { id: string, name: string, count: number, coverUrl?: string }[] = []
-      const allTaskIds = new Set<string>()
-      for (const node of root) {
-        const m = /^folder:(.+)$/.exec(String(node))
-        if (!m) continue
-        const fid = m[1]
-        const f = (foldersObj as any)[fid]
-        if (!f) continue
-        const taskIds: string[] = Array.isArray(f.taskIds) ? f.taskIds : []
-        taskIds.forEach(id => allTaskIds.add(id))
-
-        const customName = (typeof f.name === 'string' ? f.name : '').trim()
-        let displayName = customName
-        if (!displayName) {
-          const prefs = taskIds
-            .map(id => tasks.find(t => t.id === id))
-            .map(t => (t?.optimizePreference || '').trim())
-            .filter(Boolean) as string[]
-          const uniq = Array.from(new Set(prefs))
-          displayName = uniq.length === 1 ? uniq[0] : '文件夹'
-        }
-
-        const coverTask = taskIds.map(id => tasks.find(t => t.id === id)).find(t => t?.status === 'success' && t?.url)
-
-        out.push({
-          id: fid,
-          name: displayName,
-          count: taskIds.length,
-          coverUrl: (coverTask as any)?.url
-        })
-      }
-      return { folders: out, taskIdSet: allTaskIds }
-    } catch {
+    const parsed = manualLayoutRaw
+    if (!parsed || typeof parsed !== 'object') {
       return { folders: [] as { id: string, name: string, count: number, coverUrl?: string }[], taskIdSet: new Set<string>() }
     }
-  }, [tasks, manualRefreshToken])
+    const root: string[] = Array.isArray((parsed as any)?.root) ? (parsed as any).root : []
+    const foldersObj = (parsed as any)?.folders && typeof (parsed as any).folders === 'object' ? (parsed as any).folders : {}
+
+    const out: { id: string, name: string, count: number, coverUrl?: string }[] = []
+    const allTaskIds = new Set<string>()
+    for (const node of root) {
+      const m = /^folder:(.+)$/.exec(String(node))
+      if (!m) continue
+      const fid = m[1]
+      const f = (foldersObj as any)[fid]
+      if (!f) continue
+      const taskIds: string[] = Array.isArray((f as any).taskIds) ? (f as any).taskIds : []
+      taskIds.forEach(id => allTaskIds.add(id))
+
+      const customName = (typeof (f as any).name === 'string' ? (f as any).name : '').trim()
+      let displayName = customName
+      if (!displayName) {
+        const prefs = taskIds
+          .map(id => tasks.find(t => t.id === id))
+          .map(t => (t?.optimizePreference || '').trim())
+          .filter(Boolean) as string[]
+        const uniq = Array.from(new Set(prefs))
+        displayName = uniq.length === 1 ? uniq[0] : '文件夹'
+      }
+
+      const coverTask = taskIds.map(id => tasks.find(t => t.id === id)).find(t => t?.status === 'success' && t?.url)
+
+      out.push({ id: fid, name: displayName, count: taskIds.length, coverUrl: (coverTask as any)?.url })
+    }
+    return { folders: out, taskIdSet: allTaskIds }
+  }, [tasks, manualLayoutRaw])
 
   const manualFoldersForAuto = manualLayoutInfoForAuto.folders
   const manualTaskIdSetForAuto = manualLayoutInfoForAuto.taskIdSet
@@ -353,7 +371,7 @@ export default function ImageToImage({ onSwitchMode }: { onSwitchMode: (mode: Im
     return tasks.find(t => t.id === m[1]) || null
   }, [autoDragActiveId, tasks])
 
-  const moveTasksIntoManualFolder = (folderId: string, taskIds: string[]) => {
+  const moveTasksIntoManualFolder = async (folderId: string, taskIds: string[]) => {
     // 只移动成功图片
     const ok = taskIds.filter(id => {
       const t = tasks.find(x => x.id === id)
@@ -361,40 +379,36 @@ export default function ImageToImage({ onSwitchMode }: { onSwitchMode: (mode: Im
     })
     if (ok.length === 0) return
 
-    try {
-      const raw = localStorage.getItem(MANUAL_LAYOUT_KEY)
-      if (!raw) return
-      const parsed = JSON.parse(raw)
-      const root: string[] = Array.isArray(parsed?.root) ? parsed.root : []
-      const foldersObj = parsed?.folders && typeof parsed.folders === 'object' ? parsed.folders : {}
-      const f = (foldersObj as any)[folderId]
-      if (!f) return
+    const parsed = await kvGetJsonMigrate<any>(MANUAL_LAYOUT_KEY, null)
+    if (!parsed || typeof parsed !== 'object') return
+    const root: string[] = Array.isArray((parsed as any)?.root) ? (parsed as any).root : []
+    const foldersObj = (parsed as any)?.folders && typeof (parsed as any).folders === 'object' ? (parsed as any).folders : {}
+    const f = (foldersObj as any)[folderId]
+    if (!f) return
 
-      // 从 root 移除这些 task node（如果存在）
-      const root2 = root.filter(n => {
-        const m = /^task:(.+)$/.exec(String(n))
-        if (!m) return true
-        return !ok.includes(m[1])
-      })
+    // 从 root 移除这些 task node（如果存在）
+    const root2 = root.filter(n => {
+      const m = /^task:(.+)$/.exec(String(n))
+      if (!m) return true
+      return !ok.includes(m[1])
+    })
 
-      // 从所有文件夹里先去重（避免重复出现）
-      for (const fv of Object.values(foldersObj as any)) {
-        if (!fv || typeof fv !== 'object') continue
-        if (Array.isArray((fv as any).taskIds)) {
-          ;(fv as any).taskIds = (fv as any).taskIds.filter((id: string) => !ok.includes(id))
-        }
+    // 从所有文件夹里先去重（避免重复出现）
+    for (const fv of Object.values(foldersObj as any)) {
+      if (!fv || typeof fv !== 'object') continue
+      if (Array.isArray((fv as any).taskIds)) {
+        ;(fv as any).taskIds = (fv as any).taskIds.filter((id: string) => !ok.includes(id))
       }
-
-      const existing = new Set(Array.isArray(f.taskIds) ? f.taskIds : [])
-      const appended = ok.filter(id => !existing.has(id))
-      f.taskIds = [...(Array.isArray(f.taskIds) ? f.taskIds : []), ...appended]
-
-      localStorage.setItem(MANUAL_LAYOUT_KEY, JSON.stringify({ ...parsed, root: root2, folders: foldersObj }))
-      // 触发重新计算“自定义文件夹/未分类”
-      setManualRefreshToken(v => v + 1)
-    } catch {
-      // 忽略
     }
+
+    const existing = new Set(Array.isArray((f as any).taskIds) ? (f as any).taskIds : [])
+    const appended = ok.filter(id => !existing.has(id))
+    ;(f as any).taskIds = [...(Array.isArray((f as any).taskIds) ? (f as any).taskIds : []), ...appended]
+
+    const updated = { ...parsed, root: root2, folders: foldersObj }
+    await kvSetJson(MANUAL_LAYOUT_KEY, updated)
+    setManualLayoutRaw(updated)
+    setManualRefreshToken(v => v + 1)
   }
 
   // 自动叠放：按优化偏好聚合
@@ -1296,7 +1310,7 @@ export default function ImageToImage({ onSwitchMode }: { onSwitchMode: (mode: Im
                 const am = /^task:(.+)$/.exec(activeId)
                 const om = /^mf:(.+)$/.exec(overId)
                 if (!am || !om) return
-                moveTasksIntoManualFolder(om[1], [am[1]])
+                void moveTasksIntoManualFolder(om[1], [am[1]])
               }}
             >
               {autoGeneratingTasks.length > 0 && (

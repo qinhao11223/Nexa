@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { generateImage, RequestDebug, ResponseDebug } from '../../core/api/image'
+import { kvGetJsonMigrate, kvRemove, kvSetJson } from '../../core/persist/kvClient'
 
 // 图片生成任务全局存储（修复：生成中切换页面导致任务丢失）
 // 设计目标：
@@ -141,41 +142,37 @@ function normalizeTasks(list: ImageTask[]): ImageTask[] {
   })
 }
 
-function loadFromStorage(): ImageTask[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY)
-    if (!raw) return []
-    const parsed: ImageTask[] = JSON.parse(raw)
-    return normalizeTasks(parsed)
-  } catch {
-    return []
-  }
+async function loadFromStorage(): Promise<ImageTask[]> {
+  const parsed = await kvGetJsonMigrate<ImageTask[]>(LS_KEY, [])
+  return normalizeTasks(Array.isArray(parsed) ? parsed : [])
 }
 
-function saveToStorage(tasks: ImageTask[]) {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(tasks))
-  } catch {
-    // 忽略
-  }
+async function saveToStorage(tasks: ImageTask[]) {
+  await kvSetJson(LS_KEY, tasks)
 }
 
 export const useImageGenStore = create<ImageGenState>((set, get) => ({
-  tasks: loadFromStorage(),
+  tasks: [],
 
   hydrateFromStorage: () => {
-    set({ tasks: loadFromStorage() })
+    void (async () => {
+      const tasks = await loadFromStorage()
+      set({ tasks })
+    })()
   },
 
   refreshFromStorage: () => {
-    // 刷新：重新读取 localStorage 并做兼容修复
-    set({ tasks: loadFromStorage() })
+    // 刷新：重新读取持久化并做兼容修复
+    void (async () => {
+      const tasks = await loadFromStorage()
+      set({ tasks })
+    })()
   },
 
   patchTask: (id, patch) => {
     set(state => {
       const next = state.tasks.map(t => (t.id === id ? { ...t, ...patch } : t))
-      saveToStorage(next)
+      void saveToStorage(next)
       return { tasks: next }
     })
   },
@@ -183,24 +180,20 @@ export const useImageGenStore = create<ImageGenState>((set, get) => ({
   deleteTask: (id) => {
     set(state => {
       const next = state.tasks.filter(t => t.id !== id)
-      saveToStorage(next)
+      void saveToStorage(next)
       return { tasks: next }
     })
   },
 
   clearTasks: () => {
     set({ tasks: [] })
-    try {
-      localStorage.removeItem(LS_KEY)
-    } catch {
-      // 忽略
-    }
+    void kvRemove(LS_KEY)
   },
 
   clearTasksByMode: (mode) => {
     set(state => {
       const next = state.tasks.filter(t => t.mode !== mode)
-      saveToStorage(next)
+      void saveToStorage(next)
       return { tasks: next }
     })
   },
@@ -223,7 +216,7 @@ export const useImageGenStore = create<ImageGenState>((set, get) => ({
 
     set(state => {
       const next = [...newTasks, ...state.tasks]
-      saveToStorage(next)
+      void saveToStorage(next)
       return { tasks: next }
     })
 
@@ -292,7 +285,7 @@ export const useImageGenStore = create<ImageGenState>((set, get) => ({
 
     set(state => {
       const next = [task, ...state.tasks]
-      saveToStorage(next)
+      void saveToStorage(next)
       return { tasks: next }
     })
 

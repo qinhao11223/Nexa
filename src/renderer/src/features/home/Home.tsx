@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Image, Video, Share2 } from 'lucide-react'
+import { Image, Video, Share2, LayoutGrid } from 'lucide-react'
 
 // --- 模块主页面 ---
 // 主页提供整个系统的入口卡片
@@ -45,6 +45,15 @@ export default function HomeView() {
           </div>
           <h2>节点画布</h2>
           <p>可视化工作流编排</p>
+        </div>
+
+        {/* 卡片4: 快捷应用 */}
+        <div className="feature-card card-cyan" onClick={() => navigate('/apps')}>
+          <div className="card-icon-wrapper">
+            <LayoutGrid size={40} className="card-icon" />
+          </div>
+          <h2>快捷应用</h2>
+          <p>一键工作流与小工具</p>
         </div>
 
       </div>

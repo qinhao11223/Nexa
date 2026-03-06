@@ -1,3 +1,5 @@
+import { kvGetJsonMigrate, kvSetJson } from '../../../core/persist/kvClient'
+
 export type VideoUiState = {
   prompt: string
   durationSec: number
@@ -19,31 +21,23 @@ function clampInt(n: any, min: number, max: number, fallback: number) {
 }
 
 export function loadVideoUi(mode: 't2v' | 'i2v', fallback: VideoUiState): VideoUiState {
-  try {
-    const raw = localStorage.getItem(keyFor(mode))
-    if (!raw) return fallback
-    const p = JSON.parse(raw)
-    if (!p || typeof p !== 'object') return fallback
+  return fallback
+}
 
-    const aspect = p.aspectRatio === '16:9' || p.aspectRatio === '9:16' ? p.aspectRatio : fallback.aspectRatio
-
-    return {
-      prompt: typeof p.prompt === 'string' ? p.prompt : fallback.prompt,
-      durationSec: clampInt(p.durationSec, 1, 60, fallback.durationSec),
-      aspectRatio: aspect,
-      batchCount: clampInt(p.batchCount, 1, 6, fallback.batchCount),
-      enhancePrompt: typeof p.enhancePrompt === 'boolean' ? p.enhancePrompt : fallback.enhancePrompt,
-      enableUpsample: typeof p.enableUpsample === 'boolean' ? p.enableUpsample : fallback.enableUpsample
-    }
-  } catch {
-    return fallback
+export async function loadVideoUiPersisted(mode: 't2v' | 'i2v', fallback: VideoUiState): Promise<VideoUiState> {
+  const p = await kvGetJsonMigrate<any>(keyFor(mode), fallback as any)
+  if (!p || typeof p !== 'object') return fallback
+  const aspect = p.aspectRatio === '16:9' || p.aspectRatio === '9:16' ? p.aspectRatio : fallback.aspectRatio
+  return {
+    prompt: typeof p.prompt === 'string' ? p.prompt : fallback.prompt,
+    durationSec: clampInt(p.durationSec, 1, 60, fallback.durationSec),
+    aspectRatio: aspect,
+    batchCount: clampInt(p.batchCount, 1, 6, fallback.batchCount),
+    enhancePrompt: typeof p.enhancePrompt === 'boolean' ? p.enhancePrompt : fallback.enhancePrompt,
+    enableUpsample: typeof p.enableUpsample === 'boolean' ? p.enableUpsample : fallback.enableUpsample
   }
 }
 
-export function saveVideoUi(mode: 't2v' | 'i2v', state: VideoUiState) {
-  try {
-    localStorage.setItem(keyFor(mode), JSON.stringify(state))
-  } catch {
-    // ignore
-  }
+export async function saveVideoUiPersisted(mode: 't2v' | 'i2v', state: VideoUiState): Promise<void> {
+  await kvSetJson(keyFor(mode), state)
 }

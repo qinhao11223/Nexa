@@ -2,9 +2,11 @@
   "name": "nexa",
   "version": "1.0.2",
   "description": "Nexa - AI Generation and Workflow Desktop App",
+  "author": "qinhao11223",
   "main": "dist/main/index.js",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/prebuild.mjs",
     "build": "vite build && electron-builder --publish never",
     "preview": "vite preview"
   },
@@ -30,16 +32,17 @@
     "electron-builder": "^24.13.3",
     "typescript": "^5.4.3",
     "vite": "^5.2.8",
-    "vite-plugin-electron": "^0.28.4",
-    "vite-plugin-electron-renderer": "^0.14.5"
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
   },
   "build": {
     "appId": "com.nexa.app",
     "productName": "Nexa",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron",
+      "buildResources": "build"
     },
-    "artifactName": "${productName} Setup ${version}.${ext}",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
     "publish": [
       {
         "provider": "github",
@@ -50,7 +53,8 @@
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,

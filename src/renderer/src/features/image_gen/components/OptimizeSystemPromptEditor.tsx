@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { SlidersHorizontal, RotateCcw } from 'lucide-react'
+import { kvGetJsonMigrate, kvSetJson } from '../../../core/persist/kvClient'
 
 // 优化偏好编辑器：用户输入“优化偏好提示词”
 // 工作流：用户输入 Prompt + 优化偏好 -> 点击“优化” -> 调用优化模型生成“优化后的 Prompt” -> 点击“开始”用优化后的 Prompt 生图
@@ -41,41 +42,33 @@ export default function OptimizeSystemPromptEditor(props: {
 
   // provider 切换时读取持久化配置
   useEffect(() => {
-    // 先尝试按 providerId 读取；若没有，则回退到“上次使用”
-    if (!providerId) {
+    let alive = true
+    ;(async () => {
+      // 先尝试按 providerId 读取；若没有，则回退到“上次使用”
       try {
-        const raw = localStorage.getItem(lastKey(scopeKey))
-        if (!raw) return
-        const parsed = JSON.parse(raw) as PersistedState
-        if (parsed && typeof parsed === 'object') {
-          if (typeof parsed.customText === 'string') setCustomText(parsed.customText)
+        if (!providerId) {
+          const lastParsed = await kvGetJsonMigrate<PersistedState | null>(lastKey(scopeKey), null)
+          if (!alive) return
+          if (lastParsed && typeof lastParsed.customText === 'string') setCustomText(lastParsed.customText)
+          return
         }
-      } catch {
-        // 忽略
-      }
-      return
-    }
-    try {
-      const raw = localStorage.getItem(storageKey(providerId))
-      if (raw) {
-        const parsed = JSON.parse(raw) as PersistedState
-        if (parsed && typeof parsed === 'object') {
-          if (typeof parsed.customText === 'string') {
-            setCustomText(parsed.customText)
-            return
-          }
-        }
-      }
 
-      // provider 没有配置时，用“上次使用”兜底
-      const lastRaw = localStorage.getItem(lastKey(scopeKey))
-      if (!lastRaw) return
-      const lastParsed = JSON.parse(lastRaw) as PersistedState
-      if (lastParsed && typeof lastParsed === 'object') {
-        if (typeof lastParsed.customText === 'string') setCustomText(lastParsed.customText)
+        const parsed = await kvGetJsonMigrate<PersistedState | null>(storageKey(providerId), null)
+        if (!alive) return
+        if (parsed && typeof parsed.customText === 'string') {
+          setCustomText(parsed.customText)
+          return
+        }
+
+        const lastParsed = await kvGetJsonMigrate<PersistedState | null>(lastKey(scopeKey), null)
+        if (!alive) return
+        if (lastParsed && typeof lastParsed.customText === 'string') setCustomText(lastParsed.customText)
+      } catch {
+        // ignore
       }
-    } catch {
-      // 忽略坏数据
+    })()
+    return () => {
+      alive = false
     }
   }, [providerId, scopeKey])
 
@@ -87,38 +80,25 @@ export default function OptimizeSystemPromptEditor(props: {
   // 持久化
   useEffect(() => {
     const state: PersistedState = { customText }
-    try {
-      // 全局“上次使用”（不依赖 provider）
-      localStorage.setItem(lastKey(scopeKey), JSON.stringify(state))
-    } catch {
-      // 忽略
-    }
-
-    if (!providerId) return
-    try {
-      localStorage.setItem(storageKey(providerId), JSON.stringify(state))
-    } catch {
-      // 忽略
-    }
+    const t = window.setTimeout(() => {
+      void kvSetJson(lastKey(scopeKey), state)
+      if (providerId) {
+        void kvSetJson(storageKey(providerId), state)
+      }
+    }, 320)
+    return () => window.clearTimeout(t)
   }, [providerId, customText, scopeKey])
 
   const handleReset = () => {
     // “默认/恢复”：恢复上次使用的优化偏好（更符合桌面心智：不意外清空）
-    try {
-      const raw = localStorage.getItem(lastKey(scopeKey))
-      if (!raw) {
-        setCustomText('')
-        return
-      }
-      const parsed = JSON.parse(raw) as PersistedState
-      if (parsed && typeof parsed === 'object' && typeof parsed.customText === 'string') {
+    void (async () => {
+      const parsed = await kvGetJsonMigrate<PersistedState | null>(lastKey(scopeKey), null)
+      if (parsed && typeof parsed.customText === 'string') {
         setCustomText(parsed.customText)
         return
       }
-    } catch {
-      // 忽略
-    }
-    setCustomText('')
+      setCustomText('')
+    })()
   }
 
   const disabled = !providerId

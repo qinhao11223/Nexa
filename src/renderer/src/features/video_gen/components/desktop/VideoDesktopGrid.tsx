@@ -5,8 +5,9 @@ import { CSS } from '@dnd-kit/utilities'
 import { Check, ChevronLeft, Folder, FolderOpen, Film } from 'lucide-react'
 import type { VideoMode, VideoTask } from '../../store'
 import VideoContextMenu, { type VideoContextMenuItem } from './VideoContextMenu'
-import { loadLayout, makeFolderId, nodeFolderId, nodeTaskId, parseNodeId, reconcileLayout, saveLayout, type VideoManualLayout, type VideoRootNodeId } from './layout'
+import { makeFolderId, nodeFolderId, nodeTaskId, parseNodeId, reconcileLayout, type VideoManualLayout, type VideoRootNodeId } from './layout'
 import ConfirmModal from '../ConfirmModal'
+import { kvGetJsonMigrate, kvGetStringMigrate, kvSetJson, kvSetString } from '../../../../core/persist/kvClient'
 
 function rectsIntersect(a: DOMRect, b: DOMRect): boolean {
   return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom)
@@ -86,15 +87,9 @@ export default function VideoDesktopGrid(props: {
   const taskIds = useMemo(() => tasks.map(t => t.id), [tasks])
   const taskMap = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks])
 
-  const [layout, setLayout] = useState<VideoManualLayout>(() => reconcileLayout(loadLayout(storageKey), taskIds))
-  const [openFolderId, setOpenFolderId] = useState<string | null>(() => {
-    try {
-      const v = localStorage.getItem(openFolderKey)
-      return v && v.trim() ? v : null
-    } catch {
-      return null
-    }
-  })
+  const [layout, setLayout] = useState<VideoManualLayout>(() => ({ root: [], folders: {} }))
+  const [openFolderId, setOpenFolderId] = useState<string | null>(null)
+  const [hydrated, setHydrated] = useState(false)
 
   // selection
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -102,16 +97,24 @@ export default function VideoDesktopGrid(props: {
 
   useEffect(() => {
     // mode 切换时重新加载布局
-    const next = reconcileLayout(loadLayout(storageKey), taskIds)
-    setLayout(next)
-    try {
-      const v = localStorage.getItem(openFolderKey)
-      setOpenFolderId(v && v.trim() ? v : null)
-    } catch {
-      setOpenFolderId(null)
-    }
-    // 清理选择
+    let alive = true
     setSelectedIds([])
+    setHydrated(false)
+
+    ;(async () => {
+      const loaded = await kvGetJsonMigrate<VideoManualLayout>(storageKey, { root: [], folders: {} } as any)
+      if (!alive) return
+      setLayout(reconcileLayout(loaded as any, taskIds))
+
+      const v = await kvGetStringMigrate(openFolderKey)
+      if (!alive) return
+      setOpenFolderId(v && String(v).trim() ? String(v).trim() : null)
+      setHydrated(true)
+    })()
+
+    return () => {
+      alive = false
+    }
   }, [storageKey])
 
   // tasks 变化时：自动对齐布局
@@ -121,16 +124,20 @@ export default function VideoDesktopGrid(props: {
 
   // 持久化布局 + 打开文件夹
   useEffect(() => {
-    saveLayout(storageKey, layout)
-  }, [storageKey, layout])
+    if (!hydrated) return
+    const t = window.setTimeout(() => {
+      void kvSetJson(storageKey, layout)
+    }, 420)
+    return () => window.clearTimeout(t)
+  }, [hydrated, storageKey, layout])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(openFolderKey, openFolderId || '')
-    } catch {
-      // ignore
-    }
-  }, [openFolderId, openFolderKey])
+    if (!hydrated) return
+    const t = window.setTimeout(() => {
+      void kvSetString(openFolderKey, openFolderId || '')
+    }, 320)
+    return () => window.clearTimeout(t)
+  }, [hydrated, openFolderId, openFolderKey])
 
   const currentFolder = openFolderId ? layout.folders[openFolderId] : null
   const isInFolder = Boolean(openFolderId && currentFolder)

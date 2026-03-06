@@ -1,5 +1,5 @@
 import { join } from 'path'
-import { mkdir, readFile, rename, writeFile } from 'fs/promises'
+import { mkdir, readFile, rename, writeFile, copyFile } from 'fs/promises'
 import { existsSync } from 'fs'
 import { getPersistConfig } from './config'
 
@@ -22,6 +22,18 @@ async function load(): Promise<KvFile> {
     const items = (parsed && typeof parsed === 'object' && parsed.items && typeof parsed.items === 'object') ? parsed.items : {}
     return { v: 1, items: items as Record<string, string> }
   } catch {
+    // Try backup
+    try {
+      const bak = fp + '.bak'
+      if (existsSync(bak)) {
+        const raw = await readFile(bak, 'utf8')
+        const parsed = JSON.parse(raw)
+        const items = (parsed && typeof parsed === 'object' && parsed.items && typeof parsed.items === 'object') ? parsed.items : {}
+        return { v: 1, items: items as Record<string, string> }
+      }
+    } catch {
+      // ignore
+    }
     return { v: 1, items: {} }
   }
 }
@@ -31,6 +43,15 @@ async function save(file: KvFile) {
   try {
     const cfg = await getPersistConfig()
     await mkdir(join(cfg.dataRoot, 'state'), { recursive: true })
+  } catch {
+    // ignore
+  }
+
+  // Backup previous state (best-effort)
+  try {
+    if (existsSync(fp)) {
+      await copyFile(fp, fp + '.bak')
+    }
   } catch {
     // ignore
   }
