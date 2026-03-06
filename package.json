@@ -1,6 +1,6 @@
 {
   "name": "nexa",
-  "version": "1.0.2",
+  "version": "1.0.3-beta.0",
   "description": "Nexa - AI Generation and Workflow Desktop App",
   "author": "qinhao11223",
   "main": "dist/main/index.js",
