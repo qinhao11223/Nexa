@@ -4,12 +4,34 @@ import TextToVideo from './views/TextToVideo'
 import ImageToVideo from './views/ImageToVideo'
 import './styles/index.css'
 import '../image_gen/styles/index.css'
+import { kvGetStringMigrate, kvSetString } from '../../core/persist/kvClient'
 
 export type VideoGenMode = 't2v' | 'i2v'
 
+const MODE_KEY = 'nexa-video-active-mode:v1'
+
 export default function VideoGenView() {
   const location = useLocation()
-  const [mode, setMode] = useState<VideoGenMode>('t2v')
+  const [mode, setModeState] = useState<VideoGenMode>('t2v')
+
+  const setMode = (m: VideoGenMode) => {
+    setModeState(m)
+    void kvSetString(MODE_KEY, m)
+  }
+
+  // hydrate last mode
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const raw = await kvGetStringMigrate(MODE_KEY)
+      if (!alive) return
+      const v = String(raw || '').trim()
+      if (v === 't2v' || v === 'i2v') setModeState(v)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
 
   // 支持通过路由参数打开指定子模式：/video?mode=i2v
   useEffect(() => {

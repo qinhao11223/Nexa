@@ -7,6 +7,7 @@ export default function DialogHost() {
   const closeWith = useDialogStore(s => s.closeWith)
 
   const [promptValue, setPromptValue] = useState('')
+  const [textEditValue, setTextEditValue] = useState('')
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -14,20 +15,33 @@ export default function DialogHost() {
     if (dialog.kind === 'prompt') {
       setPromptValue(String(dialog.initialValue || ''))
       window.setTimeout(() => inputRef.current?.focus(), 0)
+      setTextEditValue('')
+      return
+    }
+    if (dialog.kind === 'textEdit') {
+      setTextEditValue(String(dialog.text || ''))
+      window.setTimeout(() => inputRef.current?.focus(), 0)
+      setPromptValue('')
+      return
     } else {
       setPromptValue('')
+      setTextEditValue('')
     }
   }, [dialog?.id])
 
   const canCopyText = useMemo(() => {
-    return Boolean(dialog && dialog.kind === 'text' && String(dialog.text || '').trim())
-  }, [dialog])
+    if (!dialog) return false
+    if (dialog.kind === 'text') return Boolean(String(dialog.text || '').trim())
+    if (dialog.kind === 'textEdit') return Boolean(String(textEditValue || '').trim())
+    return false
+  }, [dialog, textEditValue])
 
   if (!dialog) return null
 
   const onBackdrop = () => {
     if (dialog.kind === 'confirm') closeWith(false)
     else if (dialog.kind === 'prompt') closeWith(null)
+    else if (dialog.kind === 'textEdit') closeWith(null)
     else closeWith(undefined)
   }
 
@@ -40,12 +54,17 @@ export default function DialogHost() {
       closeWith(promptValue)
       return
     }
+    if (dialog.kind === 'textEdit') {
+      closeWith(String(textEditValue || ''))
+      return
+    }
     closeWith(undefined)
   }
 
   const onCancel = () => {
     if (dialog.kind === 'confirm') closeWith(false)
     else if (dialog.kind === 'prompt') closeWith(null)
+    else if (dialog.kind === 'textEdit') closeWith(null)
     else closeWith(undefined)
   }
 
@@ -57,23 +76,30 @@ export default function DialogHost() {
       return
     }
     if (e.key === 'Enter') {
-      // prompt 支持 Enter 提交（不做多行），其他 dialog Enter=OK
-      if (dialog.kind !== 'prompt') {
+      // 仅对单步确认类对话框做 Enter=OK；多行编辑/查看不要拦截 Enter
+      if (dialog.kind === 'confirm' || dialog.kind === 'alert') {
         e.preventDefault()
         e.stopPropagation()
         onOk()
+        return
+      }
+      if (dialog.kind === 'prompt') {
+        e.preventDefault()
+        e.stopPropagation()
+        onOk()
+        return
       }
     }
   }
 
   const title = dialog.title || 'Nexa'
-  const okText = dialog.okText || (dialog.kind === 'text' ? '关闭' : '确定')
+  const okText = dialog.okText || (dialog.kind === 'text' ? '关闭' : dialog.kind === 'textEdit' ? '应用' : '确定')
   const cancelText = dialog.cancelText || '取消'
 
   return (
     <div className="nx-dialog-wrap" role="presentation">
       <div className="nx-dialog-backdrop" onMouseDown={onBackdrop} />
-      <div className="nx-dialog" role="dialog" aria-modal="true" onKeyDown={handleKeyDown}>
+      <div className={`nx-dialog ${dialog.size === 'lg' ? 'lg' : ''}`} role="dialog" aria-modal="true" onKeyDown={handleKeyDown}>
         <div className="nx-dialog-head">
           <div className="nx-dialog-title">{title}</div>
           <button type="button" className="nx-dialog-x" onClick={onCancel} aria-label="关闭">×</button>
@@ -106,10 +132,20 @@ export default function DialogHost() {
               }}
             />
           )}
+
+          {dialog.kind === 'textEdit' && (
+            <textarea
+              ref={inputRef as any}
+              className="nx-dialog-text"
+              value={textEditValue}
+              onChange={(e) => setTextEditValue(e.target.value)}
+              spellCheck={false}
+            />
+          )}
         </div>
 
         <div className="nx-dialog-actions">
-          {dialog.kind === 'confirm' || dialog.kind === 'prompt' ? (
+          {dialog.kind === 'confirm' || dialog.kind === 'prompt' || dialog.kind === 'textEdit' ? (
             <button type="button" className="nx-btn ghost" onClick={onCancel}>{cancelText}</button>
           ) : null}
 
@@ -118,7 +154,7 @@ export default function DialogHost() {
               type="button"
               className="nx-btn ghost"
               onClick={async () => {
-                const t = String(dialog.text || '')
+                const t = dialog.kind === 'textEdit' ? String(textEditValue || '') : String(dialog.text || '')
                 try {
                   if (!navigator.clipboard?.writeText) throw new Error('no clipboard')
                   await navigator.clipboard.writeText(t)

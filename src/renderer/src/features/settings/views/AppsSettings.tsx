@@ -69,10 +69,10 @@ export default function AppsSettings() {
                       className="st-refresh-btn"
                       style={{ height: 28, padding: '0 10px' }}
                       onClick={() => togglePinned(id)}
-                      title={isPinned ? '取消收藏' : '收藏'}
+                      title={isPinned ? '移出已收藏' : '加入已收藏'}
                     >
                       <Star size={14} style={{ marginRight: 6, color: isPinned ? '#00e5ff' : '#8e94a8' }} />
-                      {isPinned ? '已收藏' : '收藏'}
+                      {isPinned ? '已收藏' : '加入已收藏'}
                     </button>
                   </div>
                   <div className="st-inline-desc">{app.meta.desc || '快捷工作流'}</div>

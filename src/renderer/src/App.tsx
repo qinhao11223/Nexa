@@ -13,8 +13,12 @@ const VideoGenView = React.lazy(() => import('./features/video_gen/VideoGen'))
 const CanvasView = React.lazy(() => import('./features/node_canvas/CanvasApp'))
 const QuickAppsLayout = React.lazy(() => import('./features/quick_apps/QuickAppsRoute'))
 const QuickAppsList = React.lazy(() => import('./features/quick_apps/pages/QuickAppsList'))
-const QuickAppRunner = React.lazy(() => import('./features/quick_apps/pages/QuickAppRunner'))
+const PromptLibrary = React.lazy(() => import('./features/quick_apps/pages/PromptLibrary'))
+const AppsDesktop = React.lazy(() => import('./features/quick_apps/pages/Desktop'))
+const DesktopTaskDetail = React.lazy(() => import('./features/quick_apps/pages/DesktopTaskDetail'))
+const QuickAppEntry = React.lazy(() => import('./features/quick_apps/pages/QuickAppEntry'))
 const CreativeLibraryRoute = React.lazy(() => import('./features/creative_library/CreativeLibraryRoute'))
+const ProductShotTaskDaemon = React.lazy(() => import('./features/quick_apps/product_shot_tasks/Daemon'))
 import DialogHost from './features/ui/DialogHost'
 import ToastHost from './features/ui/ToastHost'
 import UpdateCenter from './features/ui/UpdateCenter'
@@ -81,8 +85,15 @@ function App() {
             <Route path="/library" element={<CreativeLibraryRoute />} />
             <Route path="/canvas" element={<CanvasView />} />
             <Route path="/apps" element={<QuickAppsLayout />}>
-              <Route index element={<QuickAppsList />} />
-              <Route path=":appId" element={<QuickAppRunner />} />
+              <Route index element={<QuickAppsList mode="all" />} />
+              <Route path="pinned" element={<QuickAppsList mode="pinned" />} />
+              <Route path="prompts" element={<PromptLibrary />} />
+              <Route path="tasks" element={<AppsDesktop />} />
+              <Route path="tasks/:taskId" element={<DesktopTaskDetail />} />
+              {/* compat */}
+              <Route path="desktop" element={<AppsDesktop />} />
+              <Route path="desktop/tasks/:taskId" element={<DesktopTaskDetail />} />
+              <Route path=":appId" element={<QuickAppEntry />} />
             </Route>
             <Route path="/settings" element={<SettingsView />} />
           </Routes>
@@ -94,6 +105,9 @@ function App() {
       <ToastHost />
       <UpdateCenter />
       <FirstRunWizard />
+      <Suspense fallback={null}>
+        <ProductShotTaskDaemon />
+      </Suspense>
 
       {/* --- 底部状态栏 --- */}
       <footer className="nexa-footer">

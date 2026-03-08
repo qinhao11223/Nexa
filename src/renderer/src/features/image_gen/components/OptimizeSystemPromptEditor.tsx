@@ -110,16 +110,27 @@ export default function OptimizeSystemPromptEditor(props: {
           <SlidersHorizontal size={16} color="#00e5ff" />
           <span>优化偏好</span>
         </div>
-        <button
-          type="button"
-          className="ig-ghost-btn"
-          onClick={handleReset}
-          disabled={disabled}
-          title="恢复上次使用"
-        >
-          <RotateCcw size={14} />
-          上次
-        </button>
+        <div className="ig-block-actions">
+          <button
+            type="button"
+            className="ig-ghost-btn"
+            onClick={() => setCustomText('')}
+            disabled={disabled || !customText.trim()}
+            title="清空"
+          >
+            清空
+          </button>
+          <button
+            type="button"
+            className="ig-ghost-btn"
+            onClick={handleReset}
+            disabled={disabled}
+            title="恢复上次使用"
+          >
+            <RotateCcw size={14} />
+            上次
+          </button>
+        </div>
       </div>
 
       {/* 去除预设按钮组：避免与右侧“创意库模板”功能重复；保留自定义偏好输入框 */}

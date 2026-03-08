@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { Plus, Image as ImageIcon, Settings2, Sparkles, Star, FolderOpen, RefreshCw, Library as LibraryIcon, ChevronRight, ChevronLeft, Minus, Zap, Cpu, SearchCode, Loader2, History, Trash2, X, Maximize2, Check, Pencil } from 'lucide-react'
+import { Plus, Image as ImageIcon, Settings2, Sparkles, Star, FolderOpen, RefreshCw, Library as LibraryIcon, ChevronRight, ChevronLeft, Minus, Zap, Cpu, SearchCode, History, Trash2, X, Maximize2, Check, Pencil } from 'lucide-react'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { ImageGenMode } from '../ImageGen'
 import CompactModelPicker from '../components/CompactModelPicker'
@@ -1051,19 +1051,29 @@ export default function TextToImage({ onSwitchMode }: { onSwitchMode: (mode: Ima
         {/* 提示词输入区块与优化按钮 */}
         <div className="ig-panel-block">
           <div className="ig-block-header">
-            <span>提示词 (Prompt)</span>
-            <button 
-              className="ig-optimize-btn" 
-              onClick={handleOptimizePromptClick}
-              disabled={isOptimizing || !prompt.trim()}
-              style={{ 
-                opacity: (isOptimizing || !prompt.trim()) ? 0.5 : 1, 
-                cursor: (isOptimizing || !prompt.trim()) ? 'not-allowed' : 'pointer' 
-              }}
-            >
-              {isOptimizing ? <Loader2 size={12} className="spin-icon" /> : <Zap size={12} />} 
-              {isOptimizing ? '优化中...' : '优化'}
-            </button>
+            <span>提示词</span>
+            <div className="ig-block-actions">
+              <button
+                type="button"
+                className="ig-mini-btn"
+                onClick={() => setPrompt('')}
+                disabled={!prompt.trim() || isOptimizing}
+                title="清空提示词"
+              >
+                清空
+              </button>
+              <button
+                className="ig-optimize-btn"
+                onClick={handleOptimizePromptClick}
+                disabled={isOptimizing || !prompt.trim()}
+                style={{
+                  opacity: (isOptimizing || !prompt.trim()) ? 0.5 : 1,
+                  cursor: (isOptimizing || !prompt.trim()) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {isOptimizing ? '优化中...' : '优化'}
+              </button>
+            </div>
           </div>
           <textarea 
             className="ig-prompt-input" 

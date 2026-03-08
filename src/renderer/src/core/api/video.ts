@@ -248,13 +248,27 @@ function pickId(data: any): string {
 }
 
 function pickStatus(data: any): string {
-  return String(
+  const v =
     data?.status
     || data?.state
+    || data?.task_status
+    || data?.taskStatus
+    || data?.generation_status
+    || data?.generationStatus
+    || data?.result?.status
+    || data?.result?.state
+    || data?.task?.status
+    || data?.task?.state
     || data?.data?.status
     || data?.data?.state
+    || data?.data?.task_status
+    || data?.data?.taskStatus
+    || data?.data?.result?.status
+    || data?.data?.result?.state
+    || data?.data?.task?.status
+    || data?.data?.task?.state
     || ''
-  ).trim() || 'unknown'
+  return String(v).trim() || 'unknown'
 }
 
 function pickProgress(data: any): number | undefined {
@@ -275,22 +289,113 @@ function pickProgress(data: any): number | undefined {
   return undefined
 }
 
-function pickVideoUrl(data: any): string | undefined {
-  const looksLikeVideoUrl = (s: string) => {
-    const t = String(s || '').trim()
+function normalizeVideoUrl(baseUrl: string, raw: string): string | undefined {
+  const t = String(raw || '').trim()
+  if (!t) return undefined
+  if (/^nexa:\/\//i.test(t)) return undefined
+  if (/^file:\/\//i.test(t)) return undefined
+  if (t.startsWith('http://') || t.startsWith('https://')) return t
+  if (t.startsWith('/')) {
+    try {
+      const u = new URL(String(baseUrl || '').trim())
+      return `${u.origin}${t}`
+    } catch {
+      return undefined
+    }
+  }
+  return undefined
+}
+
+function normalizeGatewayStatus(raw: any): string {
+  const s = String(raw || '').trim()
+  if (!s) return 'unknown'
+  const low = s.toLowerCase()
+
+  // Success-like
+  if (
+    low === 'ok'
+    || low === 'success'
+    || low === 'succeeded'
+    || low === 'completed'
+    || low === 'done'
+    || low === 'finished'
+    || low === 'finish'
+    || low === 'completed_success'
+    || low === 'completed_successfully'
+    || low.includes('succeed')
+    || low.includes('success')
+    || low.includes('completed')
+    || low.includes('done')
+    || s.includes('成功')
+    || s.includes('完成')
+    || s.includes('已完成')
+  ) {
+    return 'succeeded'
+  }
+
+  // Fail-like
+  if (
+    low === 'failed'
+    || low === 'error'
+    || low === 'canceled'
+    || low === 'cancelled'
+    || low.includes('fail')
+    || low.includes('error')
+    || low.includes('canceled')
+    || low.includes('cancelled')
+    || s.includes('失败')
+    || s.includes('错误')
+    || s.includes('取消')
+  ) {
+    return 'failed'
+  }
+
+  // Running-like: keep as-is for progress UIs
+  if (
+    low.includes('running')
+    || low.includes('queued')
+    || low.includes('pending')
+    || low.includes('processing')
+    || low.includes('in_progress')
+    || low.includes('in progress')
+    || low.includes('generating')
+    || low.includes('started')
+  ) {
+    return low
+  }
+
+  return low
+}
+
+function pickVideoUrl(data: any, baseUrl: string): string | undefined {
+  const looksLikeVideoUrl = (raw: string) => {
+    const t = String(raw || '').trim()
     if (!t) return false
-    if (!(t.startsWith('http://') || t.startsWith('https://'))) return false
+    const abs = normalizeVideoUrl(baseUrl, t)
+    if (!abs) return false
+
+    const low = abs.toLowerCase()
+    // same origin: accept (often a signed download endpoint without extension)
+    try {
+      const u = new URL(abs)
+      const b = new URL(String(baseUrl || '').trim())
+      if (u.origin === b.origin) return true
+    } catch {
+      // ignore
+    }
     // 常见后缀；有些网关是带 query 的 mp4
-    const low = t.toLowerCase()
     if (low.includes('.mp4') || low.includes('.webm') || low.includes('.mov') || low.includes('.m3u8')) return true
-    // 兜底：很多中转站不带扩展名，但路径里有 video/output
-    if (low.includes('video') || low.includes('output')) return true
+    // 兜底：很多中转站不带扩展名，但路径里有 video/output/download
+    if (low.includes('video') || low.includes('videos') || low.includes('output') || low.includes('download') || low.includes('file') || low.includes('media')) return true
     return false
   }
 
   const maybeExtractFrom = (v: any): string | undefined => {
     if (!v) return undefined
-    if (typeof v === 'string') return looksLikeVideoUrl(v) ? v.trim() : undefined
+    if (typeof v === 'string') {
+      if (!looksLikeVideoUrl(v)) return undefined
+      return normalizeVideoUrl(baseUrl, v) || undefined
+    }
     if (Array.isArray(v)) {
       for (const x of v) {
         const hit = maybeExtractFrom(x)
@@ -300,7 +405,19 @@ function pickVideoUrl(data: any): string | undefined {
     }
     if (typeof v === 'object') {
       // 常见字段
-      const direct = (v as any).url || (v as any).href || (v as any).output || (v as any).video_url || (v as any).videoUrl
+      const direct = (v as any).url
+        || (v as any).href
+        || (v as any).output
+        || (v as any).video_url
+        || (v as any).videoUrl
+        || (v as any).download_url
+        || (v as any).downloadUrl
+        || (v as any).file_url
+        || (v as any).fileUrl
+        || (v as any).signed_url
+        || (v as any).signedUrl
+        || (v as any).media_url
+        || (v as any).mediaUrl
       const hit = maybeExtractFrom(direct)
       if (hit) return hit
     }
@@ -310,15 +427,29 @@ function pickVideoUrl(data: any): string | undefined {
   const candidates: any[] = [
     data?.videoUrl,
     data?.video_url,
+    data?.downloadUrl,
+    data?.download_url,
+    data?.fileUrl,
+    data?.file_url,
+    data?.signedUrl,
+    data?.signed_url,
     data?.outputUrl,
     data?.output_url,
     data?.output,
     data?.result?.url,
     data?.result?.video?.url,
+    data?.result?.downloadUrl,
+    data?.result?.download_url,
     data?.video?.url,
+    data?.video?.downloadUrl,
+    data?.video?.download_url,
     data?.data?.url,
     data?.data?.videoUrl,
     data?.data?.video_url,
+    data?.data?.downloadUrl,
+    data?.data?.download_url,
+    data?.data?.fileUrl,
+    data?.data?.file_url,
     data?.data?.result?.url,
     data?.data?.output,
     data?.data?.result?.output
@@ -339,13 +470,16 @@ function pickVideoUrl(data: any): string | undefined {
     const seen = new WeakSet<any>()
     let walked = 0
     const maxNodes = 2000
-    const walk = (node: any): string | undefined => {
-      if (walked++ > maxNodes) return undefined
-      if (!node) return undefined
-      if (typeof node === 'string') return looksLikeVideoUrl(node) ? node.trim() : undefined
-      if (typeof node !== 'object') return undefined
-      if (seen.has(node)) return undefined
-      seen.add(node)
+      const walk = (node: any): string | undefined => {
+        if (walked++ > maxNodes) return undefined
+        if (!node) return undefined
+        if (typeof node === 'string') {
+          if (!looksLikeVideoUrl(node)) return undefined
+          return normalizeVideoUrl(baseUrl, node) || undefined
+        }
+        if (typeof node !== 'object') return undefined
+        if (seen.has(node)) return undefined
+        seen.add(node)
       if (Array.isArray(node)) {
         for (const x of node) {
           const hit = walk(x)
@@ -458,29 +592,49 @@ async function getJsonWithFallbacks(
 export async function createVideoGeneration(options: VideoCreateOptions): Promise<VideoCreateResult> {
   const endpoint = options.baseUrl.trim()
 
-  const body: any = {
-    model: options.model,
-    prompt: options.prompt
-  }
-  if (typeof options.durationSec === 'number') body.duration = options.durationSec
   const isComponents = String(options.model || '').toLowerCase().includes('components')
-  if (options.aspectRatio && !isComponents) body.aspect_ratio = options.aspectRatio
-  // 不发送 resolution/image_size：清晰度通常由模型名（如 *-4k）决定
-  // fps 默认不发送（避免接口不支持导致 400）
-  if (typeof options.fps === 'number') body.fps = options.fps
-  if (typeof options.seed === 'number') body.seed = options.seed
 
-  // veo 扩展参数
-  if (options.enhancePrompt === true) body.enhance_prompt = true
-  if (options.enableUpsample === true && !isComponents) body.enable_upsample = true
-  if (Array.isArray(options.image) && options.image.length > 0) body.image = options.image
-  // 兼容部分实现使用 images 字段
-  if (Array.isArray(options.image) && options.image.length > 0) body.images = options.image
+  const buildBody = (imageField: 'image' | 'images' | null) => {
+    const body: any = {
+      model: options.model,
+      prompt: options.prompt
+    }
+    if (typeof options.durationSec === 'number') body.duration = options.durationSec
+    if (options.aspectRatio && !isComponents) body.aspect_ratio = options.aspectRatio
+    // 不发送 resolution/image_size：清晰度通常由模型名（如 *-4k）决定
+    // fps 默认不发送（避免接口不支持导致 400）
+    if (typeof options.fps === 'number') body.fps = options.fps
+    if (typeof options.seed === 'number') body.seed = options.seed
+
+    // veo 扩展参数
+    if (options.enhancePrompt === true) body.enhance_prompt = true
+    if (options.enableUpsample === true && !isComponents) body.enable_upsample = true
+
+    if (imageField && Array.isArray(options.image) && options.image.length > 0) {
+      // create a fresh array to avoid debug sanitizer marking it as "[Circular]" when reused
+      body[imageField] = [...options.image]
+    }
+
+    return body
+  }
 
   const urls = buildCreateUrls(endpoint)
 
-  const resp = await postJsonWithFallbacks(options.apiKey, urls, body, options.onRequest, options.onResponse)
-  const videoUrl = pickVideoUrl(resp?.data)
+  // Prefer sending only `image` for i2v. Some gateways treat `images` as URL list and will fail on base64.
+  // If it fails, fallback to `images` for gateways that require that field name.
+  let resp: any
+  try {
+    resp = await postJsonWithFallbacks(options.apiKey, urls, buildBody(Array.isArray(options.image) && options.image.length ? 'image' : null), options.onRequest, options.onResponse)
+  } catch (e: any) {
+    const status = e?.response?.status
+    const msg = String(e?.response?.data?.error?.message || e?.response?.data?.message || e?.message || '')
+    const hasImage = Array.isArray(options.image) && options.image.length > 0
+    const shouldRetry = hasImage && typeof status === 'number' && status >= 400 && status < 500
+      && /images|image/i.test(msg)
+    if (!shouldRetry) throw e
+    resp = await postJsonWithFallbacks(options.apiKey, urls, buildBody('images'), options.onRequest, options.onResponse)
+  }
+  const videoUrl = pickVideoUrl(resp?.data, endpoint)
   const id = pickId(resp?.data)
   // 有些实现会同步返回 video url，但不返回任务 id：此时按同步成功处理
   if (!id && videoUrl) {
@@ -503,9 +657,8 @@ export async function pollVideoGeneration(baseUrl: string, apiKey: string, id: s
     { headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }, urlMode: 'as-is' }
   ]
 
-  const normalizeStatus = (s: string) => String(s || '').trim().toLowerCase()
-  const isTerminalSuccess = (st: string) => ['succeeded', 'success', 'completed', 'done'].includes(normalizeStatus(st))
-  const isTerminalFail = (st: string) => ['failed', 'failure', 'fail', 'error', 'canceled', 'cancelled'].includes(normalizeStatus(st))
+  const isTerminalSuccess = (st: string) => normalizeGatewayStatus(st) === 'succeeded'
+  const isTerminalFail = (st: string) => normalizeGatewayStatus(st) === 'failed'
 
   let best: { score: number, result: VideoPollResult } | null = null
   let lastErr: any = null
@@ -533,8 +686,9 @@ export async function pollVideoGeneration(baseUrl: string, apiKey: string, id: s
           throw new Error(msg || `poll failed (HTTP ${http})`)
         }
 
-        const status = pickStatus(resp?.data)
-        const videoUrl = pickVideoUrl(resp?.data)
+        let status = normalizeGatewayStatus(pickStatus(resp?.data))
+        const videoUrl = pickVideoUrl(resp?.data, baseUrl)
+        if (videoUrl && (status === 'unknown' || !String(status || '').trim())) status = 'succeeded'
         const progress = pickProgress(resp?.data)
         const errorMessage = resp?.data?.error?.message
           || resp?.data?.message

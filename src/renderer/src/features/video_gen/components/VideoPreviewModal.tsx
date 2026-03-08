@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useVideoGenStore, type VideoTask } from '../store'
 import { X, Download, Trash2, Copy, FolderOpen } from 'lucide-react'
 import { formatRequestDebugForCopy } from '../../image_gen/utils/requestDebug'
@@ -57,10 +57,6 @@ export default function VideoPreviewModal(props: {
 
   const respText = (showFullResp && respFull.trim()) ? respFull : respPreview
 
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const [durationSec, setDurationSec] = useState(0)
-  const [currentSec, setCurrentSec] = useState(0)
-
   const isPortrait = useMemo(() => {
     const raw = String(task?.aspectRatio || '').trim().replace(/：/g, ':')
     const m = /^(\d+)\s*:\s*(\d+)$/.exec(raw)
@@ -70,23 +66,6 @@ export default function VideoPreviewModal(props: {
     if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return false
     return b > a
   }, [task?.aspectRatio])
-
-  useEffect(() => {
-    setDurationSec(0)
-    setCurrentSec(0)
-  }, [url])
-
-  const fmtTime = (sec: number) => {
-    const s = Math.max(0, Math.floor(sec || 0))
-    const h = Math.floor(s / 3600)
-    const m = Math.floor((s % 3600) / 60)
-    const r = s % 60
-    const pad = (n: number) => String(n).padStart(2, '0')
-    if (h > 0) return `${h}:${pad(m)}:${pad(r)}`
-    return `${m}:${pad(r)}`
-  }
-
-  const progressPct = durationSec > 0 ? Math.max(0, Math.min(100, (currentSec / durationSec) * 100)) : 0
 
   const { providers, activeProviderId, videoProviderId, updateProvider } = useSettingsStore()
   const providerId = task?.providerId || videoProviderId || activeProviderId
@@ -120,55 +99,12 @@ export default function VideoPreviewModal(props: {
             isPortrait ? (
               <div className="vg-modal-portrait-wrap">
                 <video
-                  ref={(el) => { videoRef.current = el }}
                   src={url}
                   controls
                   autoPlay
                   playsInline
                   className="vg-modal-video portrait"
-                  onLoadedMetadata={(e) => {
-                    const v = e.currentTarget
-                    const d = Number(v.duration)
-                    if (Number.isFinite(d) && d > 0) setDurationSec(d)
-                  }}
-                  onDurationChange={(e) => {
-                    const v = e.currentTarget
-                    const d = Number(v.duration)
-                    if (Number.isFinite(d) && d > 0) setDurationSec(d)
-                  }}
-                  onTimeUpdate={(e) => {
-                    const v = e.currentTarget
-                    const t = Number(v.currentTime)
-                    if (Number.isFinite(t) && t >= 0) setCurrentSec(t)
-                  }}
                 />
-
-                <div
-                  className="vg-modal-playbar"
-                  title="点击进度条跳转"
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const v = videoRef.current
-                    if (!v) return
-                    const d = Number(v.duration)
-                    if (!Number.isFinite(d) || d <= 0) return
-                    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-                    const ratio = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0
-                    const next = Math.max(0, Math.min(d, ratio * d))
-                    try {
-                      v.currentTime = next
-                      setCurrentSec(next)
-                    } catch {
-                      // ignore
-                    }
-                  }}
-                >
-                  <div className="track">
-                    <div className="fill" style={{ width: `${progressPct}%` }} />
-                  </div>
-                  <div className="time">{fmtTime(currentSec)} / {durationSec > 0 ? fmtTime(durationSec) : '--:--'}</div>
-                </div>
               </div>
             ) : (
               <video

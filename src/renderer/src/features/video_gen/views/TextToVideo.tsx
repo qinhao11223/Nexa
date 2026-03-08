@@ -1,12 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { Film, Plus, Minus, Sparkles, Trash2, Library as LibraryIcon, Image as ImageIcon, Languages, Wand2 } from 'lucide-react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Film, Plus, Minus, Sparkles, Trash2, Library as LibraryIcon, Image as ImageIcon } from 'lucide-react'
 import type { VideoGenMode } from '../VideoGen'
 import { useNavigate } from 'react-router-dom'
 import { useSettingsStore } from '../../settings/store'
 import { resolveApiKey } from '../../settings/utils/apiKeys'
 import CompactModelPicker from '../../image_gen/components/CompactModelPicker'
 import OptimizeSystemPromptEditor from '../../image_gen/components/OptimizeSystemPromptEditor'
-import { optimizePrompt, translatePromptToEnglish } from '../../../core/api/chat'
 import VideoDesktopGrid from '../components/desktop/VideoDesktopGrid'
 import VideoPreviewModal from '../components/VideoPreviewModal'
 import ConfirmModal from '../components/ConfirmModal'
@@ -17,6 +16,8 @@ import CreativeCollectionsPanel from '../../image_gen/components/CreativeCollect
 import { takePendingPromptLink } from '../../creative_library/promptLink'
 import { useCreativeLibraryStore } from '../../creative_library/store'
 import { uiToast } from '../../ui/toastStore'
+import { useVideoPromptOpsStore } from '../promptOpsStore'
+import { uiTextEditor } from '../../ui/dialogStore'
 
 export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) => void }) {
   const { onSwitchMode } = props
@@ -59,12 +60,23 @@ export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) 
 
   const [optimizePreference, setOptimizePreference] = useState('')
   const [injectOptimizeCustomText, setInjectOptimizeCustomText] = useState('')
-  const [busyOp, setBusyOp] = useState<null | 'optimize' | 'translate'>(null)
+  const busyOp = useVideoPromptOpsStore(s => s.byMode.t2v.busy)
+  const lastResult = useVideoPromptOpsStore(s => s.byMode.t2v.lastResult)
+  const startOptimize = useVideoPromptOpsStore(s => s.optimize)
+  const startTranslate = useVideoPromptOpsStore(s => s.translate)
+  const hydrateHistory = useVideoPromptOpsStore(s => s.hydrateHistory)
+  const lastAppliedAtRef = useRef(0)
+
+  useEffect(() => {
+    hydrateHistory('t2v')
+  }, [hydrateHistory])
 
   const isVeoModel = useMemo(() => /^\s*veo/i.test(currentVideoModel), [currentVideoModel])
   const hasCjk = useMemo(() => /[\u4e00-\u9fff]/.test(prompt), [prompt])
   const [enhancePrompt, setEnhancePrompt] = useState(defaults.enhancePrompt)
   const [enableUpsample, setEnableUpsample] = useState(defaults.enableUpsample)
+
+  const [veoOptionsOpen, setVeoOptionsOpen] = useState(false)
 
   const [uiHydrated, setUiHydrated] = useState(false)
 
@@ -98,6 +110,16 @@ export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) 
     return () => window.clearTimeout(t)
   }, [uiHydrated, prompt, durationSec, aspectRatio, batchCount, enhancePrompt, enableUpsample])
 
+  // Apply prompt updates from background ops (survive navigation)
+  useEffect(() => {
+    if (!lastResult) return
+    const at = Number(lastResult.at || 0)
+    if (!Number.isFinite(at) || at <= 0) return
+    if (at <= lastAppliedAtRef.current) return
+    lastAppliedAtRef.current = at
+    setPrompt(String(lastResult.text || ''))
+  }, [lastResult])
+
   const [previewTaskId, setPreviewTaskId] = useState<string | null>(null)
   const previewTask = useMemo(() => t2vTasks.find(t => t.id === previewTaskId) || null, [t2vTasks, previewTaskId])
 
@@ -114,7 +136,7 @@ export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) 
     }
   }, [])
 
-  const handleOptimize = async () => {
+  const handleOptimize = () => {
     if (!prompt.trim()) return
     if (!activeProvider) {
       uiToast('info', '请先在设置中选择或配置 API 网站')
@@ -130,24 +152,18 @@ export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) 
       return
     }
 
-    setBusyOp('optimize')
-    try {
-      const optimizedText = await optimizePrompt(
-        activeProvider.baseUrl,
-        promptApiKey,
-        currentPromptModel,
-        prompt,
-        optimizePreference
-      )
-      setPrompt(optimizedText)
-    } catch (e: any) {
-      uiToast('error', `优化失败：${e?.message || '未知错误'}`)
-    } finally {
-      setBusyOp(null)
-    }
+    startOptimize({
+      mode: 't2v',
+      baseUrl: activeProvider.baseUrl,
+      apiKey: promptApiKey,
+      model: currentPromptModel,
+      prompt,
+      preference: optimizePreference,
+      fallbackUi: defaults
+    })
   }
 
-  const handleTranslate = async () => {
+  const handleTranslate = () => {
     if (!prompt.trim()) return
     if (!activeProvider) {
       uiToast('info', '请先在设置中选择或配置 API 网站')
@@ -162,21 +178,16 @@ export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) 
       uiToast('info', '请先在设置中选择“提示词翻译模型”')
       return
     }
-    setBusyOp('translate')
-    try {
-      const out = await translatePromptToEnglish(
-        activeProvider.baseUrl,
-        translateApiKey,
-        currentTranslateModel,
-        prompt,
-        optimizePreference
-      )
-      setPrompt(out)
-    } catch (e: any) {
-      uiToast('error', `翻译失败：${e?.message || '未知错误'}`)
-    } finally {
-      setBusyOp(null)
-    }
+
+    startTranslate({
+      mode: 't2v',
+      baseUrl: activeProvider.baseUrl,
+      apiKey: translateApiKey,
+      model: currentTranslateModel,
+      prompt,
+      preference: optimizePreference,
+      fallbackUi: defaults
+    })
   }
 
   const handleGenerate = () => {
@@ -251,8 +262,36 @@ export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) 
 
         <div className="vg-panel">
           <div className="vg-block-head">
-            <div className="vg-block-title">提示词（Prompt）</div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="vg-block-title">提示词</div>
+            <div className="vg-block-actions">
+              <button
+                type="button"
+                className="vg-mini-btn"
+                onClick={async () => {
+                  const next = await uiTextEditor(String(prompt || ''), {
+                    title: '编辑提示词',
+                    message: '支持多行；应用后会覆盖当前提示词',
+                    size: 'lg',
+                    okText: '应用',
+                    cancelText: '取消'
+                  })
+                  if (next == null) return
+                  setPrompt(next)
+                }}
+                disabled={busyOp !== null}
+                title="展开编辑"
+              >
+                展开
+              </button>
+              <button
+                type="button"
+                className="vg-mini-btn"
+                onClick={() => setPrompt('')}
+                disabled={busyOp !== null || !prompt.trim()}
+                title="清空提示词"
+              >
+                清空
+              </button>
               <button
                 type="button"
                 className="vg-mini-btn"
@@ -260,7 +299,7 @@ export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) 
                 disabled={busyOp !== null || !prompt.trim()}
                 title="用提示词模型优化"
               >
-                <Wand2 size={14} /> {busyOp === 'optimize' ? '优化中...' : '优化'}
+                {busyOp === 'optimize' ? '优化中...' : '优化'}
               </button>
               {isVeoModel && (
                 <button
@@ -270,7 +309,7 @@ export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) 
                   disabled={busyOp !== null || !prompt.trim()}
                   title="翻译/改写为英文（Veo 常用）"
                 >
-                  <Languages size={14} /> {busyOp === 'translate' ? '翻译中...' : '英文'}
+                  {busyOp === 'translate' ? '翻译中...' : '英文'}
                 </button>
               )}
             </div>
@@ -287,29 +326,42 @@ export default function TextToVideo(props: { onSwitchMode: (mode: VideoGenMode) 
           <div className="vg-panel">
             <div className="vg-block-head">
               <div className="vg-block-title">Veo 选项</div>
+              <button
+                type="button"
+                className="vg-mini-btn"
+                onClick={() => setVeoOptionsOpen(v => !v)}
+                aria-expanded={veoOptionsOpen}
+              >
+                {veoOptionsOpen ? '收起' : '展开'}
+              </button>
             </div>
-            <div className="vg-field">
-              <div className="vg-label">增强提示词（英文）</div>
-              <div className="vg-pill-row">
-                <button type="button" className={`vg-pill ${enhancePrompt ? 'active' : ''}`} onClick={() => setEnhancePrompt(v => !v)}>
-                  {enhancePrompt ? '开启' : '关闭'}
-                </button>
-              </div>
-              <div className="vg-muted" style={{ marginTop: 6 }}>
-                部分中转网关会在开启后把中文自动转成英文并增强描述。
-              </div>
-            </div>
-            <div className="vg-field">
-              <div className="vg-label">启用上采样</div>
-              <div className="vg-pill-row">
-                <button type="button" className={`vg-pill ${enableUpsample ? 'active' : ''}`} onClick={() => setEnableUpsample(v => !v)}>
-                  {enableUpsample ? '开启' : '关闭'}
-                </button>
-              </div>
-              <div className="vg-muted" style={{ marginTop: 6 }}>
-                返回更高分辨率（如 1080p）。某些模型/接口可能不支持。
-              </div>
-            </div>
+
+            {veoOptionsOpen ? (
+              <>
+                <div className="vg-field">
+                  <div className="vg-label">增强提示词（英文）</div>
+                  <div className="vg-pill-row">
+                    <button type="button" className={`vg-pill ${enhancePrompt ? 'active' : ''}`} onClick={() => setEnhancePrompt(v => !v)}>
+                      {enhancePrompt ? '开启' : '关闭'}
+                    </button>
+                  </div>
+                  <div className="vg-muted" style={{ marginTop: 6 }}>
+                    部分中转网关会在开启后把中文自动转成英文并增强描述。
+                  </div>
+                </div>
+                <div className="vg-field">
+                  <div className="vg-label">启用上采样</div>
+                  <div className="vg-pill-row">
+                    <button type="button" className={`vg-pill ${enableUpsample ? 'active' : ''}`} onClick={() => setEnableUpsample(v => !v)}>
+                      {enableUpsample ? '开启' : '关闭'}
+                    </button>
+                  </div>
+                  <div className="vg-muted" style={{ marginTop: 6 }}>
+                    返回更高分辨率（如 1080p）。某些模型/接口可能不支持。
+                  </div>
+                </div>
+              </>
+            ) : null}
           </div>
         )}
 

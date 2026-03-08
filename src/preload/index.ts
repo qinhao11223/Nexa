@@ -16,6 +16,11 @@ const api = {
   persistSetItem: (key: string, value: string) => ipcRenderer.invoke('persist:kv-set', key, value),
   persistRemoveItem: (key: string) => ipcRenderer.invoke('persist:kv-remove', key),
 
+  // input image cache
+  inputImageCacheStats: () => ipcRenderer.invoke('cache:input-images:stats'),
+  clearInputImageCache: () => ipcRenderer.invoke('cache:input-images:clear'),
+  removeInputImageCacheFile: (args: { localPath?: string, filePath?: string }) => ipcRenderer.invoke('cache:input-images:remove-file', args),
+
   // 窗口控制
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
 

@@ -2,29 +2,13 @@ import React, { useMemo, useRef, useState } from 'react'
 import { Image as ImageIcon, X } from 'lucide-react'
 import type { QuickAppInputImage } from '../types'
 import { uiToast } from '../../ui/toastStore'
+import { fileToQuickAppInputImage } from '../utils/imageOptimize'
 
 function likelyImageFile(f: File) {
   const t = String((f as any)?.type || '').toLowerCase()
   if (t.startsWith('image/')) return true
   const n = String(f?.name || '').toLowerCase()
   return ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'].some(ext => n.endsWith(ext))
-}
-
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = () => reject(new Error('read failed'))
-    reader.onload = () => resolve(String(reader.result || ''))
-    reader.readAsDataURL(file)
-  })
-}
-
-async function fileToInputImage(file: File): Promise<QuickAppInputImage | null> {
-  if (!likelyImageFile(file)) return null
-  const dataUrl = await readAsDataUrl(file)
-  const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : ''
-  if (!base64) return null
-  return { dataUrl, base64, name: file.name || 'image' }
 }
 
 export default function ImageDrop(props: {
@@ -48,7 +32,7 @@ export default function ImageDrop(props: {
       return
     }
     try {
-      const img = await fileToInputImage(f)
+      const img = await fileToQuickAppInputImage(f)
       if (!img) {
         uiToast('error', '读取图片失败')
         return

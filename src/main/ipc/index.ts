@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow, shell, clipboard, nativeImage, dialog, app } from 'electron'
 import { join, resolve } from 'path'
-import { writeFile, mkdir } from 'fs/promises'
-import { existsSync } from 'fs'
+import { writeFile, mkdir, rm } from 'fs/promises'
+import { existsSync, type Dirent } from 'fs'
 import { copyFile } from 'fs/promises'
 import { readFile } from 'fs/promises'
 import { readdir, stat } from 'fs/promises'
@@ -10,6 +10,52 @@ import { sniffVideo } from '../utils/sniffVideo'
 import { checkForUpdates, downloadUpdate, openReleasesPage, quitAndInstall, setUpdateChannel, type UpdateChannel } from '../updater'
 import { getPersistConfig, getPersistConfigWarning, openDataRootInExplorer, resolveUserPath, setPersistConfig } from '../persist/config'
 import { kvGetItem, kvRemoveItem, kvSetItem } from '../persist/kv'
+
+const I2V_INPUT_MANIFEST_KEY = 'nexa-video-i2v-input-manifest:v1'
+const QA_PRODUCT_SHOT_INPUT_MANIFEST_KEY = 'nexa-qa-product-shot-input-manifest:v1'
+const QA_PRODUCT_SHOT_SESSION_KEY = 'nexa-qa-product-shot-session:v1'
+
+function isSubPath(child: string, parent: string): boolean {
+  const c = resolve(String(child || ''))
+  const p = resolve(String(parent || ''))
+  const sep = /\\/.test(p) ? '\\' : '/'
+  const pp = p.endsWith(sep) ? p : (p + sep)
+  return c.toLowerCase().startsWith(pp.toLowerCase())
+}
+
+async function getInputImageCacheRoot() {
+  const cfg = await getPersistConfig()
+  return join(cfg.dataRoot, 'cache', 'input-images')
+}
+
+async function dirStats(root: string): Promise<{ fileCount: number, totalBytes: number }> {
+  if (!root || !existsSync(root)) return { fileCount: 0, totalBytes: 0 }
+  let fileCount = 0
+  let totalBytes = 0
+  const walk = async (dir: string) => {
+    const ents = await readdir(dir, { withFileTypes: true } as const) as unknown as Dirent[]
+    for (const ent of ents) {
+      const p = join(dir, ent.name)
+      if (ent.isDirectory()) {
+        await walk(p)
+      } else if (ent.isFile()) {
+        try {
+          const st = await stat(p)
+          fileCount += 1
+          totalBytes += Number(st.size || 0)
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+  try {
+    await walk(root)
+  } catch {
+    return { fileCount: 0, totalBytes: 0 }
+  }
+  return { fileCount, totalBytes }
+}
 
 // 注册所有主进程与渲染进程的通信事件
 export function registerIpcHandlers(window: BrowserWindow) {
@@ -56,6 +102,70 @@ export function registerIpcHandlers(window: BrowserWindow) {
   ipcMain.handle('persist:kv-remove', async (_event, key: string) => {
     await kvRemoveItem(String(key || ''))
     return { success: true }
+  })
+
+  // --- Input image cache (dataRoot/cache/input-images) ---
+  ipcMain.handle('cache:input-images:stats', async () => {
+    try {
+      const root = await getInputImageCacheRoot()
+      const s = await dirStats(root)
+      return { success: true, root, ...s }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'failed' }
+    }
+  })
+
+  ipcMain.handle('cache:input-images:clear', async () => {
+    try {
+      const root = await getInputImageCacheRoot()
+      // Safety: never delete outside dataRoot/cache/input-images
+      const cfg = await getPersistConfig()
+      const safeRoot = join(cfg.dataRoot, 'cache', 'input-images')
+      if (!isSubPath(root, safeRoot) && resolve(root).toLowerCase() !== resolve(safeRoot).toLowerCase()) {
+        throw new Error('unsafe cache root')
+      }
+
+      await rm(root, { recursive: true, force: true })
+      await mkdir(root, { recursive: true })
+      // Clear known manifests
+      await kvRemoveItem(I2V_INPUT_MANIFEST_KEY)
+      await kvRemoveItem(QA_PRODUCT_SHOT_INPUT_MANIFEST_KEY)
+      await kvRemoveItem(QA_PRODUCT_SHOT_SESSION_KEY)
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'failed' }
+    }
+  })
+
+  ipcMain.handle('cache:input-images:remove-file', async (_event, args: { localPath?: string, filePath?: string }) => {
+    try {
+      const raw = String(args?.filePath || args?.localPath || '').trim()
+      if (!raw) return { success: false, error: 'missing path' }
+
+      let filePath = raw
+      try {
+        if (/^nexa:\/\//i.test(raw)) {
+          const u = new URL(raw)
+          if (u.hostname === 'local') {
+            filePath = String(u.searchParams.get('path') || '').trim()
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      if (!filePath) return { success: false, error: 'missing file path' }
+
+      const root = await getInputImageCacheRoot()
+      if (!isSubPath(filePath, root)) {
+        return { success: false, error: 'unsafe path' }
+      }
+
+      await rm(filePath, { force: true })
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'failed' }
+    }
   })
 
   // --- Auto updater ---

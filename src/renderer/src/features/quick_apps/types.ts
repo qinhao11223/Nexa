@@ -14,9 +14,22 @@ export type QuickAppMeta = {
 }
 
 export type QuickAppInputImage = {
+  id?: string
   dataUrl: string
   base64: string
   name: string
+
+  // local cache (nexa://local?path=...)
+  localPath?: string
+  // original data url (data:image/...) for API send/download
+  sourceDataUrl?: string
+  createdAt?: number
+
+  // optional meta for debug/preview
+  mimeType?: string
+  width?: number
+  height?: number
+  bytes?: number
 }
 
 export type QuickAppInput = {
@@ -58,5 +71,11 @@ export type QuickAppWorkflow = {
     size?: string
     aspectRatio?: string
     imageSize?: string
+  }
+
+  ui?: {
+    imageSlots?: Array<{ key: string, label: string, required?: boolean }>
+    promptLabel?: string
+    promptPlaceholder?: string
   }
 }

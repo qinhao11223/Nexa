@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type DialogKind = 'alert' | 'confirm' | 'prompt' | 'text'
+export type DialogKind = 'alert' | 'confirm' | 'prompt' | 'text' | 'textEdit'
 
 export type DialogModel = {
   id: string
@@ -9,6 +9,9 @@ export type DialogModel = {
   message?: string
   okText?: string
   cancelText?: string
+
+  // layout
+  size?: 'md' | 'lg'
 
   // prompt
   placeholder?: string
@@ -26,8 +29,20 @@ type DialogState = {
   openAlert: (opts: { title?: string, message: string, okText?: string }) => Promise<void>
   openConfirm: (opts: { title?: string, message: string, okText?: string, cancelText?: string }) => Promise<boolean>
   openPrompt: (opts: { title?: string, message: string, placeholder?: string, initialValue?: string, okText?: string, cancelText?: string }) => Promise<string | null>
-  openText: (opts: { title?: string, message?: string, text: string, okText?: string }) => Promise<void>
+  openText: (opts: { title?: string, message?: string, text: string, okText?: string, size?: 'md' | 'lg' }) => Promise<void>
+  openTextEdit: (opts: { title?: string, message?: string, text: string, okText?: string, cancelText?: string, size?: 'md' | 'lg' }) => Promise<string | null>
   closeWith: (value: any) => void
+}
+
+function resolveExistingDialog(cur: DialogModel) {
+  try {
+    if (cur.kind === 'confirm') cur._resolve(false)
+    else if (cur.kind === 'prompt') cur._resolve(null)
+    else if (cur.kind === 'textEdit') cur._resolve(null)
+    else cur._resolve(undefined)
+  } catch {
+    // ignore
+  }
 }
 
 function makeId() {
@@ -45,13 +60,7 @@ export const useDialogStore = create<DialogState>((set, get) => ({
       // 若已有 dialog，先关闭它（按 cancel/默认值）
       const cur = get().dialog
       if (cur) {
-        try {
-          if (cur.kind === 'confirm') cur._resolve(false)
-          else if (cur.kind === 'prompt') cur._resolve(null)
-          else cur._resolve(undefined)
-        } catch {
-          // ignore
-        }
+        resolveExistingDialog(cur)
       }
       set({
         dialog: {
@@ -74,13 +83,7 @@ export const useDialogStore = create<DialogState>((set, get) => ({
     return new Promise<boolean>((resolve) => {
       const cur = get().dialog
       if (cur) {
-        try {
-          if (cur.kind === 'confirm') cur._resolve(false)
-          else if (cur.kind === 'prompt') cur._resolve(null)
-          else cur._resolve(undefined)
-        } catch {
-          // ignore
-        }
+        resolveExistingDialog(cur)
       }
       set({
         dialog: {
@@ -106,13 +109,7 @@ export const useDialogStore = create<DialogState>((set, get) => ({
     return new Promise<string | null>((resolve) => {
       const cur = get().dialog
       if (cur) {
-        try {
-          if (cur.kind === 'confirm') cur._resolve(false)
-          else if (cur.kind === 'prompt') cur._resolve(null)
-          else cur._resolve(undefined)
-        } catch {
-          // ignore
-        }
+        resolveExistingDialog(cur)
       }
       set({
         dialog: {
@@ -135,16 +132,11 @@ export const useDialogStore = create<DialogState>((set, get) => ({
     const message = opts.message ? String(opts.message) : ''
     const okText = String(opts.okText || '关闭')
     const text = String(opts.text || '')
+    const size = opts.size === 'lg' ? 'lg' : 'md'
     return new Promise<void>((resolve) => {
       const cur = get().dialog
       if (cur) {
-        try {
-          if (cur.kind === 'confirm') cur._resolve(false)
-          else if (cur.kind === 'prompt') cur._resolve(null)
-          else cur._resolve(undefined)
-        } catch {
-          // ignore
-        }
+        resolveExistingDialog(cur)
       }
       set({
         dialog: {
@@ -154,6 +146,33 @@ export const useDialogStore = create<DialogState>((set, get) => ({
           message,
           okText,
           text,
+          size,
+          _resolve: resolve
+        }
+      })
+    })
+  },
+
+  openTextEdit: (opts) => {
+    const title = (opts.title || 'Nexa').trim() || 'Nexa'
+    const message = opts.message ? String(opts.message) : ''
+    const okText = String(opts.okText || '应用')
+    const cancelText = String(opts.cancelText || '取消')
+    const text = String(opts.text || '')
+    const size = opts.size === 'lg' ? 'lg' : 'md'
+    return new Promise<string | null>((resolve) => {
+      const cur = get().dialog
+      if (cur) resolveExistingDialog(cur)
+      set({
+        dialog: {
+          id: makeId(),
+          kind: 'textEdit',
+          title,
+          message,
+          okText,
+          cancelText,
+          text,
+          size,
           _resolve: resolve
         }
       })
@@ -189,6 +208,17 @@ export function uiPrompt(message: string, opts?: { title?: string, placeholder?:
   })
 }
 
-export function uiTextViewer(text: string, opts?: { title?: string, message?: string }) {
-  return useDialogStore.getState().openText({ title: opts?.title, message: opts?.message, text })
+export function uiTextViewer(text: string, opts?: { title?: string, message?: string, size?: 'md' | 'lg' }) {
+  return useDialogStore.getState().openText({ title: opts?.title, message: opts?.message, text, size: opts?.size })
+}
+
+export function uiTextEditor(text: string, opts?: { title?: string, message?: string, okText?: string, cancelText?: string, size?: 'md' | 'lg' }) {
+  return useDialogStore.getState().openTextEdit({
+    title: opts?.title,
+    message: opts?.message,
+    okText: opts?.okText,
+    cancelText: opts?.cancelText,
+    text,
+    size: opts?.size
+  })
 }

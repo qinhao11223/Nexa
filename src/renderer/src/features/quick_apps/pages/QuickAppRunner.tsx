@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Play } from 'lucide-react'
 import { quickAppsCatalog } from '../apps/loadApps'
@@ -20,11 +20,35 @@ export default function QuickAppRunner() {
   const autoSaveEnabled = useSettingsStore(s => s.autoSaveEnabled)
   const outputDirectory = useSettingsStore(s => s.outputDirectory)
 
-  const [img, setImg] = useState<QuickAppInputImage | null>(null)
+  const imageSlots = useMemo(() => {
+    const slots = workflow?.ui?.imageSlots
+    if (Array.isArray(slots) && slots.length > 0) return slots
+    return [{ key: 'ref', label: '参考图', required: true }]
+  }, [workflow])
+
+  const [images, setImages] = useState<Record<string, QuickAppInputImage | null>>({})
   const [prompt, setPrompt] = useState('')
   const [busy, setBusy] = useState(false)
   const [outImages, setOutImages] = useState<string[]>([])
   const [err, setErr] = useState<string>('')
+
+  // Ensure state has keys for all slots
+  useEffect(() => {
+    setImages(prev => {
+      const next: Record<string, QuickAppInputImage | null> = { ...prev }
+      for (const s of imageSlots) {
+        const k = String(s.key || '').trim()
+        if (!k) continue
+        if (!(k in next)) next[k] = null
+      }
+      // remove stale keys when switching apps
+      const keep = new Set(imageSlots.map(s => String(s.key || '').trim()).filter(Boolean))
+      for (const k of Object.keys(next)) {
+        if (!keep.has(k)) delete next[k]
+      }
+      return next
+    })
+  }, [imageSlots])
 
   const ctxResult = useMemo(() => {
     if (!workflow) return { ok: false as const, error: '找不到该应用' }
@@ -43,9 +67,17 @@ export default function QuickAppRunner() {
     setErr('')
     setOutImages([])
 
-    if (workflow.meta.requiresImage !== false && !img) {
-      uiToast('info', '请先上传参考图')
-      return
+    if (workflow.meta.requiresImage !== false) {
+      const missingRequired = imageSlots.some(s => {
+        const k = String(s.key || '').trim()
+        if (!k) return false
+        const required = s.required !== false
+        return required && !images[k]
+      })
+      if (missingRequired) {
+        uiToast('info', '请先上传参考图片')
+        return
+      }
     }
     if (workflow.meta.requiresPrompt !== false && !String(prompt || '').trim()) {
       uiToast('info', '请先输入提示词')
@@ -57,7 +89,10 @@ export default function QuickAppRunner() {
     }
 
     const ctx = ctxResult.ctx
-    const input = { prompt: String(prompt || ''), images: img ? [img] : [] }
+    const imgs = imageSlots
+      .map(s => images[String(s.key || '').trim()])
+      .filter(Boolean) as QuickAppInputImage[]
+    const input = { prompt: String(prompt || ''), images: imgs }
 
     setBusy(true)
     try {
@@ -78,7 +113,7 @@ export default function QuickAppRunner() {
         size: workflow.imageOptions?.size,
         aspectRatio: workflow.imageOptions?.aspectRatio,
         imageSize: workflow.imageOptions?.imageSize,
-        image: img ? [img.base64] : undefined,
+        image: input.images.length > 0 ? input.images.map(i => i.base64) : undefined,
         saveDir: ctx.saveDir
       })
       setOutImages(imgs)
@@ -123,20 +158,33 @@ export default function QuickAppRunner() {
         <div className="qa-run-left">
           <div className="qa-panel">
             <div className="qa-panel-title">输入</div>
-            <div className="qa-field">
-              <div className="qa-label">参考图</div>
-              <ImageDrop value={img} onChange={setImg} disabled={busy} />
-            </div>
-            <div className="qa-field">
-              <div className="qa-label">提示词</div>
-              <textarea
-                className="qa-textarea"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="输入你想要的效果描述..."
-                disabled={busy}
-              />
-            </div>
+            {imageSlots.map(s => {
+              const k = String(s.key || '').trim()
+              if (!k) return null
+              return (
+                <div key={k} className="qa-field">
+                  <div className="qa-label">{s.label || '参考图'}</div>
+                  <ImageDrop
+                    value={images[k] || null}
+                    onChange={(next) => setImages(prev => ({ ...prev, [k]: next }))}
+                    disabled={busy}
+                  />
+                </div>
+              )
+            })}
+
+            {workflow.meta.requiresPrompt !== false ? (
+              <div className="qa-field">
+                <div className="qa-label">{workflow.ui?.promptLabel || '提示词'}</div>
+                <textarea
+                  className="qa-textarea"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder={workflow.ui?.promptPlaceholder || '输入你想要的效果描述...'}
+                  disabled={busy}
+                />
+              </div>
+            ) : null}
             <button type="button" className="qa-primary" onClick={handleRun} disabled={busy}>
               <Play size={16} /> {busy ? '运行中...' : '运行'}
             </button>

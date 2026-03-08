@@ -7,6 +7,7 @@ import { useSettingsStore } from './store'
 import './styles/settings.css'
 import Toggle from './components/Toggle'
 import { uiToast } from '../ui/toastStore'
+import { useDialogStore } from '../ui/dialogStore'
 
 export default function SettingsView() {
   const [activeTab, setActiveTab] = useState<'api' | 'canvas' | 'video' | 'apps' | 'general' | 'about'>('api')
@@ -14,6 +15,33 @@ export default function SettingsView() {
 
   const [appVersion, setAppVersion] = React.useState<string>('')
   const [persistCfg, setPersistCfg] = React.useState<any>(null)
+  const [cacheStats, setCacheStats] = React.useState<{ fileCount: number, totalBytes: number, root?: string } | null>(null)
+  const [cacheBusy, setCacheBusy] = React.useState(false)
+
+  const formatBytes = (n: number) => {
+    const v = Number(n || 0)
+    if (!Number.isFinite(v) || v <= 0) return '0 B'
+    const kb = 1024
+    const mb = kb * 1024
+    const gb = mb * 1024
+    if (v >= gb) return `${(v / gb).toFixed(2)} GB`
+    if (v >= mb) return `${(v / mb).toFixed(2)} MB`
+    if (v >= kb) return `${(v / kb).toFixed(2)} KB`
+    return `${Math.round(v)} B`
+  }
+
+  const refreshCacheStats = async () => {
+    try {
+      const api = (window as any).nexaAPI
+      if (!api?.inputImageCacheStats) return
+      const r = await api.inputImageCacheStats()
+      if (r?.success) {
+        setCacheStats({ fileCount: Number(r.fileCount || 0), totalBytes: Number(r.totalBytes || 0), root: String(r.root || '') || undefined })
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   React.useEffect(() => {
     let alive = true
@@ -32,6 +60,11 @@ export default function SettingsView() {
       alive = false
     }
   }, [])
+
+  React.useEffect(() => {
+    if (activeTab !== 'general') return
+    void refreshCacheStats()
+  }, [activeTab])
   React.useEffect(() => {
     let alive = true
     ;(async () => {
@@ -177,6 +210,77 @@ export default function SettingsView() {
                 >
                   重新设置
                 </button>
+              </div>
+            </div>
+
+            <div className="st-group">
+              <label className="st-label">输入图像缓存</label>
+              <div className="st-inline-row">
+                <div className="st-inline-left">
+                  <div className="st-inline-title">参考图缓存（用于图生视频等）</div>
+                  <div className="st-inline-desc">上传的参考图会临时缓存到本地，便于重启后继续使用。你可以在这里一键清理。</div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className={`st-refresh-btn ${cacheBusy ? 'loading' : ''}`}
+                    onClick={async () => {
+                      if (cacheBusy) return
+                      setCacheBusy(true)
+                      try {
+                        await refreshCacheStats()
+                      } finally {
+                        setCacheBusy(false)
+                      }
+                    }}
+                  >
+                    刷新
+                  </button>
+                  <button
+                    type="button"
+                    className={`st-refresh-btn ${cacheBusy ? 'loading' : ''}`}
+                    onClick={async () => {
+                      if (cacheBusy) return
+                      const ok = await useDialogStore.getState().openConfirm({
+                        title: '清理缓存',
+                        message: '确定要清理 input 图像缓存吗？\n\n这会删除已缓存的参考图文件，重启后将无法恢复这些参考图。',
+                        okText: '清理',
+                        cancelText: '取消'
+                      })
+                      if (!ok) return
+                      setCacheBusy(true)
+                      try {
+                        const api = (window as any).nexaAPI
+                        const r = await api?.clearInputImageCache?.()
+                        if (!r?.success) {
+                          uiToast('error', r?.error || '清理失败')
+                          return
+                        }
+                        uiToast('success', '已清理 input 图像缓存')
+                        await refreshCacheStats()
+                      } catch (e: any) {
+                        uiToast('error', e?.message || '清理失败')
+                      } finally {
+                        setCacheBusy(false)
+                      }
+                    }}
+                  >
+                    清理
+                  </button>
+                </div>
+              </div>
+
+              <div className="st-input-wrapper">
+                <input
+                  type="text"
+                  className="st-input"
+                  value={cacheStats?.root ? String(cacheStats.root) : (persistCfg?.dataRoot ? `${String(persistCfg.dataRoot)}\\cache\\input-images` : '')}
+                  readOnly
+                  placeholder="缓存目录"
+                />
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#8e94a8', marginTop: '4px' }}>
+                {`当前缓存：${cacheStats ? `${cacheStats.fileCount} 个文件，${formatBytes(cacheStats.totalBytes)}` : '（点刷新查看）'}`}
               </div>
             </div>
             

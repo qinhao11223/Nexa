@@ -18,6 +18,11 @@ declare global {
       persistSetItem: (key: string, value: string) => Promise<{ success: boolean }>
       persistRemoveItem: (key: string) => Promise<{ success: boolean }>
 
+      // Input image cache (dataRoot/cache/input-images)
+      inputImageCacheStats: () => Promise<{ success: boolean, root?: string, fileCount?: number, totalBytes?: number, error?: string }>
+      clearInputImageCache: () => Promise<{ success: boolean, error?: string }>
+      removeInputImageCacheFile: (args: { localPath?: string, filePath?: string }) => Promise<{ success: boolean, error?: string }>
+
       // 下载图片到本地（由主进程完成文件写入）
       downloadImage: (args: { url: string, saveDir: string, fileName: string }) => Promise<{ success: boolean, localPath?: string, error?: string }>
 

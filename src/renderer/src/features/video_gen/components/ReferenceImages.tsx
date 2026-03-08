@@ -9,8 +9,14 @@ import { uiToast } from '../../ui/toastStore'
 export type RefImage = {
   id: string
   dataUrl: string
-  base64: string
+  base64?: string
+  // Original data url (data:image/...;base64,...) used for multimodal optimize.
+  // Not persisted; can be rehydrated from local cache file when needed.
+  sourceDataUrl?: string
   name: string
+  // Local cache url (nexa://local?path=...).
+  localPath?: string
+  createdAt?: number
 }
 
 function makeId() {
@@ -260,7 +266,7 @@ export function ReferenceImagesModal(props: {
           <div className="vg-up-empty">
             <ImageIcon size={40} style={{ opacity: 0.55 }} />
             <div className="t">还没有上传参考图</div>
-            <div className="d">在右侧面板上传图片后再展开管理。</div>
+            <div className="d">先上传图片后再展开管理。</div>
           </div>
         )}
 
