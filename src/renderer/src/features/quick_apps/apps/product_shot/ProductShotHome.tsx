@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Bot, BookText, Image as ImageIcon, ListChecks, Plus, Sparkles, Star } from 'lucide-react'
+import { ArrowLeft, Bot, BookText, Check, FolderOpen, Download, Image as ImageIcon, ListChecks, Plus, Sparkles, Star, Trash2, X } from 'lucide-react'
 import { uiConfirm, uiPrompt } from '../../../ui/dialogStore'
 import { uiToast } from '../../../ui/toastStore'
 import { usePromptLibraryStore } from '../../prompt_library/store'
+import { downloadJson, exportPromptSetV1, makeUniqueFileName, makeUniqueImportedName, parsePromptSetImports, pickJsonFiles } from '../../prompt_library/transfer'
 import ProductShotGeniePolicyModal from './ProductShotGeniePolicyModal'
 import '../../styles/quickApps.css'
 import { fileToQuickAppInputImage } from '../../utils/imageOptimize'
@@ -26,9 +27,22 @@ export default function ProductShotHome() {
   const updateSet = usePromptLibraryStore(s => s.updateSet)
   const toggleFavorite = usePromptLibraryStore(s => s.toggleFavorite)
   const setActiveSet = usePromptLibraryStore(s => s.setActive)
+  const removeSet = usePromptLibraryStore(s => s.removeSet)
 
   const [q, setQ] = React.useState('')
   const [policyOpen, setPolicyOpen] = React.useState(false)
+  const [selecting, setSelecting] = React.useState(false)
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([])
+
+  const isSelected = (id: string) => selectedIds.includes(id)
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [id, ...prev]))
+  }
+
+  const exitSelecting = () => {
+    setSelecting(false)
+    setSelectedIds([])
+  }
 
   const pickCoverFile = async (): Promise<File | null> => {
     return await new Promise((resolve) => {
@@ -130,7 +144,80 @@ export default function ProductShotHome() {
     openStudio(created.id)
   }
 
-  const placeholders = useMemo(() => Array.from({ length: 12 }).map((_, i) => `ph_${i}`), [])
+  const importSets = async () => {
+    try {
+      const files = await pickJsonFiles(true)
+      if (files.length === 0) return
+      let imported: any[] = []
+      for (const f of files) {
+        try {
+          const text = await f.text()
+          imported = imported.concat(parsePromptSetImports(text))
+        } catch {
+          // ignore invalid file
+        }
+      }
+      const list = imported.filter(Boolean)
+      if (list.length === 0) {
+        uiToast('error', '导入失败：未识别到有效模板组 JSON')
+        return
+      }
+
+      const existing = (sets || []).filter(s => s.appId === 'product_shot').slice()
+      let added = 0
+      for (const it of list) {
+        const cat = String(it.category || '').trim() || undefined
+        const name = makeUniqueImportedName(existing, String(it.name || ''), cat)
+        const created = addSet({
+          appId: 'product_shot',
+          name,
+          category: cat,
+          tags: Array.isArray(it.tags) ? it.tags : undefined,
+          agent1Template: String(it.agent1Template || ''),
+          agent2Template: String(it.agent2Template || ''),
+          agent3Template: String(it.agent3Template || ''),
+          agent1Model: String(it.agent1Model || ''),
+          agent2Model: String(it.agent2Model || ''),
+          genModel: String(it.genModel || ''),
+          genRatio: String(it.genRatio || ''),
+          genRes: String(it.genRes || '')
+        } as any)
+        existing.unshift(created as any)
+        added += 1
+      }
+      uiToast('success', `已导入 ${added} 个模板组`)
+    } catch (e: any) {
+      uiToast('error', e?.message || '导入失败')
+    }
+  }
+
+  const exportSelected = async () => {
+    const ids = selectedIds.slice().filter(Boolean)
+    if (ids.length === 0) return
+    const map: Record<string, any> = {}
+    for (const s of (sets || []).filter(x => x.appId === 'product_shot')) map[s.id] = s
+    const picked = ids.map(id => map[id]).filter(Boolean)
+    if (picked.length === 0) return
+
+    const used = new Set<string>()
+    for (const s of picked) {
+      const fileName = makeUniqueFileName(String(s.name || '模板组'), used)
+      downloadJson(fileName, exportPromptSetV1(s))
+      // allow multiple downloads
+      await new Promise(r => window.setTimeout(r, 120))
+    }
+    uiToast('success', `已导出 ${picked.length} 个 JSON`)
+  }
+
+  const deleteSelected = async () => {
+    const ids = selectedIds.slice().filter(Boolean)
+    if (ids.length === 0) return
+    const ok = await uiConfirm(`确定删除选中的 ${ids.length} 个模板组？此操作不可撤销。`, '删除')
+    if (!ok) return
+    for (const id of ids) removeSet(id)
+    uiToast('success', `已删除 ${ids.length} 个模板组`)
+    exitSelecting()
+  }
 
   return (
     <div className="qa-run ps-run">
@@ -149,21 +236,43 @@ export default function ProductShotHome() {
           </div>
 
           <div className="ps-home-actions">
-            <button className="ps-home-iconbtn" type="button" onClick={() => setPolicyOpen(true)} title="提示词精灵关键策略">
-              <Bot size={16} />
-            </button>
-            <button className="ps-home-btn" type="button" onClick={() => openStudio()} title="打开工作台（保持上次输入）">
-              <Sparkles size={16} /> 继续上次
-            </button>
-            <button className="ps-home-btn" type="button" onClick={() => void createAndOpen()}>
-              <Plus size={16} /> 新建模板组
-            </button>
-            <button className="ps-home-btn ghost" type="button" onClick={goPrompts}>
-              <BookText size={16} /> 提示词库
-            </button>
-            <button className="ps-home-btn ghost" type="button" onClick={goTasks}>
-              <ListChecks size={16} /> 任务列表
-            </button>
+            {selecting ? (
+              <>
+                <button className="ps-home-btn ghost" type="button" onClick={() => void importSets()} title="导入模板组 JSON">
+                  <FolderOpen size={16} /> 导入模板组
+                </button>
+                <button className="ps-home-btn ghost" type="button" onClick={() => void exportSelected()} disabled={selectedIds.length === 0} title="导出选中模板组为 JSON">
+                  <Download size={16} /> 导出JSON（{selectedIds.length}）
+                </button>
+                <button className="ps-home-btn danger" type="button" onClick={() => void deleteSelected()} disabled={selectedIds.length === 0} title="删除选中模板组">
+                  <Trash2 size={16} /> 删除（{selectedIds.length}）
+                </button>
+                <button className="ps-home-btn ghost" type="button" onClick={exitSelecting} title="退出选择模式">
+                  <X size={16} /> 取消
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="ps-home-iconbtn" type="button" onClick={() => setPolicyOpen(true)} title="提示词精灵关键策略">
+                  <Bot size={16} />
+                </button>
+                <button className="ps-home-btn" type="button" onClick={() => openStudio()} title="打开工作台（保持上次输入）">
+                  <Sparkles size={16} /> 继续上次
+                </button>
+                <button className="ps-home-btn" type="button" onClick={() => void createAndOpen()}>
+                  <Plus size={16} /> 新建模板组
+                </button>
+                <button className="ps-home-btn ghost" type="button" onClick={() => { setSelecting(true); setSelectedIds([]) }} title="选择多个模板组进行导出/删除">
+                  <Check size={16} /> 选择
+                </button>
+                <button className="ps-home-btn ghost" type="button" onClick={goPrompts}>
+                  <BookText size={16} /> 提示词库
+                </button>
+                <button className="ps-home-btn ghost" type="button" onClick={goTasks}>
+                  <ListChecks size={16} /> 任务列表
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -171,43 +280,44 @@ export default function ProductShotHome() {
 
         <div className="ps-home-grid" role="list">
           {appSets.length === 0 ? (
-            placeholders.map(id => (
-              <div key={id} className="qa-card ps-set-card placeholder" role="listitem" aria-hidden="true">
-                <div className="qa-card-cover ps-set-cover" />
-                <div className="qa-card-head">
-                  <div className="ps-set-sk sk" />
-                  <div className="ps-set-sk2 sk" />
-                </div>
-                <div className="qa-card-desc ps-set-sk3 sk" />
-                <div className="qa-card-foot">
-                  <div className="qa-card-cat ps-set-sk4 sk" />
-                </div>
-              </div>
-            ))
+            <div className="qa-empty ps-home-empty" role="listitem">
+              <div className="t">还没有模板组</div>
+              <div className="d">点击右上角“新建模板组”，或用“选择”进入后导入 JSON。</div>
+            </div>
           ) : (
             appSets.map(s => {
               const category = String(s.category || '').trim()
               const name = String(s.name || '').trim() || '未命名'
               const coverUrl = String((s as any)?.coverUrl || '').trim()
               const sub = `${category || '未分类'} · 更新 ${shortDate(s.updatedAt)}`
+              const selected = selecting && isSelected(s.id)
               return (
                 <div
                   key={s.id}
-                  className="qa-card ps-set-card"
+                  className={`qa-card ps-set-card ${selected ? 'selected' : ''} ${selecting ? 'selecting' : ''}`}
                   role="button"
                   tabIndex={0}
                   title={category ? `${category}/${name}` : name}
-                  onClick={() => openStudio(s.id)}
+                  onClick={() => {
+                    if (selecting) toggleSelected(s.id)
+                    else openStudio(s.id)
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
-                      openStudio(s.id)
+                      if (selecting) toggleSelected(s.id)
+                      else openStudio(s.id)
                     }
                   }}
                 >
                   <div className={`qa-card-cover ps-set-cover ${coverUrl ? 'has-img' : ''}`} aria-hidden="true">
                     {coverUrl ? <img src={coverUrl} alt="" draggable={false} loading="lazy" /> : null}
                     <div className="qa-card-cover-badge">{category || '未分类'}</div>
+                    {selecting ? (
+                      <div className={`ps-set-check ${selected ? 'on' : ''}`} aria-hidden="true">
+                        {selected ? <Check size={16} /> : null}
+                      </div>
+                    ) : null}
                     <button
                       type="button"
                       className="ps-set-coverbtn"

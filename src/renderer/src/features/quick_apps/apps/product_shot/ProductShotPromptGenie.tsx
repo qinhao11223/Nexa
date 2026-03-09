@@ -8,6 +8,7 @@ import { uiToast } from '../../../ui/toastStore'
 import { chatCompletionsText, type ChatMessage } from '../../../../core/api/chatCompletions'
 import { ensureQuickAppImageData } from '../../utils/localImage'
 import { buildGeniePolicyPreviewText, useGeniePolicy } from './geniePolicy'
+import { useGenieHistory } from './genieHistory'
 
 type GenieTemplateSource = 'editor' | 'set'
 
@@ -152,6 +153,11 @@ export default function ProductShotPromptGenie(props: {
   templateSource: GenieTemplateSource
   onTemplateSourceChange: (v: GenieTemplateSource) => void
 
+  // which prompt set to use when templateSource === 'set'
+  // 'follow-active' means using activeSet
+  baseSetId: string
+  onBaseSetIdChange: (v: string) => void
+
   useImages: boolean
   onUseImagesChange: (v: boolean) => void
   flags: GenieSendFlags
@@ -182,6 +188,8 @@ export default function ProductShotPromptGenie(props: {
     model,
     templateSource,
     onTemplateSourceChange,
+    baseSetId,
+    onBaseSetIdChange,
     useImages,
     onUseImagesChange,
     flags,
@@ -197,6 +205,7 @@ export default function ProductShotPromptGenie(props: {
     onApplyAll
   } = props
 
+  const promptSets = usePromptLibraryStore(s => s.sets)
   const addSet = usePromptLibraryStore(s => s.addSet)
   const updateSet = usePromptLibraryStore(s => s.updateSet)
   const setActive = usePromptLibraryStore(s => s.setActive)
@@ -205,15 +214,41 @@ export default function ProductShotPromptGenie(props: {
   const [raw, setRaw] = useState('')
   const parsed = useMemo(() => parseGenieResult(raw), [raw])
 
+  const history = useGenieHistory()
+
   const { policy } = useGeniePolicy()
   const policyText = useMemo(() => buildGeniePolicyPreviewText(policy), [policy])
 
+  const setsForProductShot = useMemo(() => {
+    const list = (promptSets || []).filter(s => s.appId === 'product_shot')
+    return list
+      .slice()
+      .sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)) || b.updatedAt - a.updatedAt)
+  }, [promptSets])
+
+  const labelOfSet = (s: PromptSet) => {
+    const c = String(s.category || '').trim()
+    const n = String(s.name || '').trim() || '未命名'
+    return c ? `${c}/${n}` : n
+  }
+
   const baseTemplates = useMemo(() => {
-    if (templateSource === 'set' && activeSet) {
-      return {
-        agent1Template: String(activeSet.agent1Template || ''),
-        agent2Template: String(activeSet.agent2Template || ''),
-        agent3Template: String(activeSet.agent3Template || '')
+    if (templateSource === 'set') {
+      const resolved = (() => {
+        const id = String(baseSetId || '').trim()
+        if (id && id !== 'follow-active') {
+          const found = setsForProductShot.find(s => s.id === id) || null
+          if (found) return found
+        }
+        return activeSet
+      })()
+
+      if (resolved) {
+        return {
+          agent1Template: String(resolved.agent1Template || ''),
+          agent2Template: String(resolved.agent2Template || ''),
+          agent3Template: String(resolved.agent3Template || '')
+        }
       }
     }
     return {
@@ -221,7 +256,7 @@ export default function ProductShotPromptGenie(props: {
       agent2Template: String(editorTemplates.agent2Template || ''),
       agent3Template: String(editorTemplates.agent3Template || '')
     }
-  }, [templateSource, activeSet, editorTemplates])
+  }, [templateSource, baseSetId, setsForProductShot, activeSet, editorTemplates])
 
   const imageSendCount = useMemo(() => {
     let n = 0
@@ -304,11 +339,48 @@ export default function ProductShotPromptGenie(props: {
       setRaw(String(text || '').trim())
       const ok = parseGenieResult(text)
       if (!ok) uiToast('info', '已生成，但解析失败：你可以在下方查看原文并手动复制')
+
+      // auto-save history
+      try {
+        history.add({
+          providerId: providerId || undefined,
+          model: String(model || '').trim() || undefined,
+          templateSource,
+          baseSetId: templateSource === 'set' ? (String(baseSetId || '').trim() || 'follow-active') : 'editor',
+          idea: String(idea || ''),
+          useImages: Boolean(useImages),
+          imageSendCount,
+          raw: String(text || ''),
+          parsed: ok || undefined
+        })
+      } catch {
+        // ignore
+      }
     } catch (e: any) {
       uiToast('error', e?.message || '生成失败')
     } finally {
       setBusy(false)
     }
+  }
+
+  const handleSaveHistory = () => {
+    const t = String(raw || '').trim()
+    if (!t) {
+      uiToast('info', '没有可保存的内容')
+      return
+    }
+    history.add({
+      providerId: providerId || undefined,
+      model: String(model || '').trim() || undefined,
+      templateSource,
+      baseSetId: templateSource === 'set' ? (String(baseSetId || '').trim() || 'follow-active') : 'editor',
+      idea: String(userIdea || ''),
+      useImages: Boolean(useImages),
+      imageSendCount,
+      raw: t,
+      parsed: parsed || undefined
+    })
+    uiToast('success', '已保存到历史')
   }
 
   const handleApply = () => {
@@ -368,16 +440,32 @@ export default function ProductShotPromptGenie(props: {
           <div className="ps-genie-row">
             <div className="k">模板来源</div>
             <div className="v">
-              <select
-                className="ps-select"
-                value={templateSource}
-                onChange={(e) => onTemplateSourceChange(String(e.target.value) as any)}
-                disabled={Boolean(disabled) || busy}
-                title={templateSource === 'set' && !activeSet ? '当前未选择模板组，将回退到当前编辑内容' : ''}
-              >
-                <option value="editor">当前编辑内容</option>
-                <option value="set">当前选中模板组</option>
-              </select>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <select
+                  className="ps-select"
+                  value={templateSource}
+                  onChange={(e) => onTemplateSourceChange(String(e.target.value) as any)}
+                  disabled={Boolean(disabled) || busy}
+                  title={templateSource === 'set' && !activeSet ? '当前未选择模板组，将回退到当前编辑内容' : ''}
+                >
+                  <option value="editor">当前编辑内容</option>
+                  <option value="set">模板组</option>
+                </select>
+
+                <select
+                  className="ps-select"
+                  value={String(baseSetId || 'follow-active')}
+                  onChange={(e) => onBaseSetIdChange(String(e.target.value))}
+                  disabled={Boolean(disabled) || busy || templateSource !== 'set'}
+                  title={templateSource !== 'set' ? '仅在“模板来源=模板组”时可选' : '选择精灵使用哪一套模板组作为基础'}
+                  style={{ minWidth: 220 }}
+                >
+                  <option value="follow-active">跟随当前选中模板组</option>
+                  {setsForProductShot.map(s => (
+                    <option key={s.id} value={s.id}>{labelOfSet(s)}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -475,6 +563,9 @@ export default function ProductShotPromptGenie(props: {
                 <button className="ps-mini" type="button" onClick={() => void handleOverwrite()} disabled={!parsed || busy}>
                   覆盖当前模板组
                 </button>
+                <button className="ps-mini" type="button" onClick={handleSaveHistory} disabled={!raw.trim() || busy}>
+                  保存到历史
+                </button>
               </div>
             </div>
 
@@ -485,6 +576,91 @@ export default function ProductShotPromptGenie(props: {
               placeholder="生成结果会显示在这里（JSON）"
               spellCheck={false}
             />
+          </div>
+
+          <div className="ps-genie-history">
+            <div className="ps-genie-history-head">
+              <div className="t">历史生成</div>
+              <div className="a">
+                <button
+                  className="ps-mini"
+                  type="button"
+                  onClick={async () => {
+                    const ok = await uiConfirm('清空所有精灵历史记录？', '清空历史')
+                    if (!ok) return
+                    history.clear()
+                    uiToast('success', '已清空历史')
+                  }}
+                  disabled={busy || (history.items || []).length === 0}
+                >
+                  清空
+                </button>
+              </div>
+            </div>
+
+            {(history.items || []).length === 0 ? (
+              <div className="ps-genie-history-empty">暂无历史。每次生成会自动记录。</div>
+            ) : (
+              <div className="ps-genie-history-list">
+                {(history.items || []).map(it => (
+                  <div key={it.id} className="ps-genie-history-item">
+                    <button
+                      type="button"
+                      className="ps-genie-history-main"
+                      onClick={() => {
+                        setRaw(String(it.raw || ''))
+                        uiToast('success', '已载入该条历史到编辑框')
+                      }}
+                      title="点击载入到上方编辑框"
+                    >
+                      <div className="h1">
+                        <span className="time">{new Date(it.createdAt).toLocaleString()}</span>
+                        <span className="meta">{it.templateSource === 'set' ? '模板组' : '编辑内容'} · {it.useImages ? `参考图 ${it.imageSendCount} 张` : '纯文本'}</span>
+                      </div>
+                      <div className="h2">{String(it.idea || '').trim() || '（无想法）'}</div>
+                    </button>
+
+                    <div className="ps-genie-history-actions">
+                      <button
+                        className="ps-mini"
+                        type="button"
+                        onClick={() => {
+                          setRaw(String(it.raw || ''))
+                          uiToast('success', '已载入')
+                        }}
+                        disabled={busy}
+                      >
+                        载入
+                      </button>
+                      <button
+                        className="ps-mini"
+                        type="button"
+                        onClick={() => {
+                          const txt = String(it.raw || '')
+                          navigator.clipboard?.writeText
+                            ? navigator.clipboard.writeText(txt).then(() => uiToast('success', '已复制')).catch(() => uiToast('error', '复制失败'))
+                            : uiTextViewer(txt, { title: '复制内容', size: 'lg' })
+                        }}
+                        disabled={busy || !String(it.raw || '').trim()}
+                      >
+                        复制
+                      </button>
+                      <button
+                        className="ps-mini"
+                        type="button"
+                        onClick={() => {
+                          history.remove(it.id)
+                          uiToast('success', '已删除')
+                        }}
+                        disabled={busy}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { ArrowLeft, Plus, Search, Star, Trash2, Copy } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Download, FolderOpen, Plus, Search, Star, Trash2, X } from 'lucide-react'
 import { usePromptLibraryStore, type PromptSet } from '../prompt_library/store'
 import { uiConfirm, uiPrompt, uiTextEditor } from '../../ui/dialogStore'
 import AppsTopTabs from '../components/AppsTopTabs'
+import { downloadJson, exportPromptSetV1, makeUniqueFileName, makeUniqueImportedName, parsePromptSetImports, pickJsonFiles } from '../prompt_library/transfer'
 import '../styles/quickApps.css'
 
 function norm(s: string) {
@@ -29,6 +30,18 @@ export default function PromptLibrary() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<'all' | 'fav' | string>('all')
   const [activeId, setActiveId] = useState<string | null>(null)
+
+  const [selecting, setSelecting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  const isSelected = (id: string) => selectedIds.includes(id)
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [id, ...prev]))
+  }
+  const exitSelecting = () => {
+    setSelecting(false)
+    setSelectedIds([])
+  }
 
   const backTarget = useMemo(() => {
     try {
@@ -74,11 +87,83 @@ export default function PromptLibrary() {
   }, [appSets, q, filter])
 
   const active = useMemo(() => {
+    if (selecting) return null
     const id = activeId || (filtered[0]?.id || null)
     return id ? (filtered.find(s => s.id === id) || null) : null
-  }, [activeId, filtered])
+  }, [selecting, activeId, filtered])
 
   const setActive = (id: string) => setActiveId(id)
+
+  const importSets = async () => {
+    try {
+      const files = await pickJsonFiles(true)
+      if (files.length === 0) return
+      let imported: any[] = []
+      for (const f of files) {
+        try {
+          const text = await f.text()
+          imported = imported.concat(parsePromptSetImports(text))
+        } catch {
+          // ignore invalid file
+        }
+      }
+      const list = imported.filter(Boolean)
+      if (list.length === 0) return
+
+      const existing = (sets || []).filter(s => s.appId === 'product_shot').slice()
+      let lastId: string | null = null
+      let added = 0
+      for (const it of list) {
+        const cat = String(it.category || '').trim() || undefined
+        const name = makeUniqueImportedName(existing, String(it.name || ''), cat)
+        const created = addSet({
+          appId: 'product_shot',
+          name,
+          category: cat,
+          tags: Array.isArray(it.tags) ? it.tags : undefined,
+          agent1Template: String(it.agent1Template || ''),
+          agent2Template: String(it.agent2Template || ''),
+          agent3Template: String(it.agent3Template || ''),
+          agent1Model: String(it.agent1Model || ''),
+          agent2Model: String(it.agent2Model || ''),
+          genModel: String(it.genModel || ''),
+          genRatio: String(it.genRatio || ''),
+          genRes: String(it.genRes || '')
+        } as any)
+        existing.unshift(created as any)
+        lastId = created.id
+        added += 1
+      }
+      if (!selecting && lastId) setActiveId(lastId)
+    } catch {
+      // ignore
+    }
+  }
+
+  const exportSelected = async () => {
+    const ids = selectedIds.slice().filter(Boolean)
+    if (ids.length === 0) return
+    const map: Record<string, PromptSet> = {}
+    for (const s of appSets) map[s.id] = s
+    const picked = ids.map(id => map[id]).filter(Boolean)
+    if (picked.length === 0) return
+
+    const used = new Set<string>()
+    for (const s of picked) {
+      const fileName = makeUniqueFileName(String(s.name || '模板组'), used)
+      downloadJson(fileName, exportPromptSetV1(s))
+      await new Promise(r => window.setTimeout(r, 120))
+    }
+  }
+
+  const deleteSelected = async () => {
+    const ids = selectedIds.slice().filter(Boolean)
+    if (ids.length === 0) return
+    const ok = await uiConfirm(`确定删除选中的 ${ids.length} 个模板组？此操作不可撤销。`, '删除')
+    if (!ok) return
+    for (const id of ids) removeSet(id)
+    exitSelecting()
+  }
 
   const createNew = async () => {
     const name = await uiPrompt('模板组名称', { title: '新建提示词模板组', placeholder: '例如：帽子（ededed背景）' })
@@ -161,9 +246,22 @@ export default function PromptLibrary() {
             </div>
 
             <div className="pl-actions">
-              <button className="pl-btn" type="button" onClick={() => void createNew()}><Plus size={16} /> 新建</button>
-              <button className="pl-btn" type="button" onClick={() => void duplicateActive()} disabled={!active}><Copy size={16} /> 复制</button>
-              <button className="pl-btn danger" type="button" onClick={() => void deleteActive()} disabled={!active}><Trash2 size={16} /> 删除</button>
+              {selecting ? (
+                <>
+                  <button className="pl-btn" type="button" onClick={() => void importSets()}><FolderOpen size={16} /> 导入</button>
+                  <button className="pl-btn" type="button" onClick={() => void exportSelected()} disabled={selectedIds.length === 0}><Download size={16} /> 导出JSON（{selectedIds.length}）</button>
+                  <button className="pl-btn danger" type="button" onClick={() => void deleteSelected()} disabled={selectedIds.length === 0}><Trash2 size={16} /> 删除（{selectedIds.length}）</button>
+                  <button className="pl-btn" type="button" onClick={exitSelecting}><X size={16} /> 取消</button>
+                </>
+              ) : (
+                <>
+                  <button className="pl-btn" type="button" onClick={() => void importSets()}><FolderOpen size={16} /> 导入</button>
+                  <button className="pl-btn" type="button" onClick={() => void createNew()}><Plus size={16} /> 新建</button>
+                  <button className="pl-btn" type="button" onClick={() => void duplicateActive()} disabled={!active}><Copy size={16} /> 复制</button>
+                  <button className="pl-btn danger" type="button" onClick={() => void deleteActive()} disabled={!active}><Trash2 size={16} /> 删除</button>
+                  <button className="pl-btn" type="button" onClick={() => { setSelecting(true); setSelectedIds([]) }}><Check size={16} /> 选择</button>
+                </>
+              )}
             </div>
           </div>
 
@@ -202,9 +300,17 @@ export default function PromptLibrary() {
                 <button
                   key={s.id}
                   type="button"
-                  className={`pl-item ${active?.id === s.id ? 'active' : ''}`}
-                  onClick={() => setActive(s.id)}
+                  className={`pl-item ${(!selecting && active?.id === s.id) ? 'active' : ''} ${(selecting && isSelected(s.id)) ? 'selected' : ''} ${selecting ? 'selecting' : ''}`}
+                  onClick={() => {
+                    if (selecting) toggleSelected(s.id)
+                    else setActive(s.id)
+                  }}
                 >
+                  {selecting ? (
+                    <div className={`pl-item-check ${isSelected(s.id) ? 'on' : ''}`} aria-hidden="true">
+                      {isSelected(s.id) ? <Check size={14} /> : null}
+                    </div>
+                  ) : null}
                   <div className="pl-item-top">
                     <div className="pl-item-name" title={s.name}>{s.name}</div>
                     <button
@@ -226,7 +332,12 @@ export default function PromptLibrary() {
           </div>
 
           <div className="pl-editor">
-            {!active ? (
+            {selecting ? (
+              <div className="qa-empty">
+                <div className="t">选择模式</div>
+                <div className="d">已选 {selectedIds.length} 个模板组；右上角可导出/删除。</div>
+              </div>
+            ) : !active ? (
               <div className="qa-empty">
                 <div className="t">未选择模板组</div>
                 <div className="d">从左侧列表选择一个条目。</div>

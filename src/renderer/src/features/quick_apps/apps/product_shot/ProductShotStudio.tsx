@@ -12,7 +12,7 @@ import { uiToast } from '../../../ui/toastStore'
 import { chatCompletionsText, type ChatMessage } from '../../../../core/api/chatCompletions'
 import { generateImage } from '../../../../core/api/image'
 import { useQuickAppAgentPresetStore, type AgentRole } from '../../agents/store'
-import { kvGetJsonMigrate, kvSetJson } from '../../../../core/persist/kvClient'
+import { kvGetJson, kvGetJsonMigrate, kvRemove, kvSetJson } from '../../../../core/persist/kvClient'
 import { ensureQuickAppImageData, isDataUrl, parseNexaLocalPath, srcToDataUrl } from '../../utils/localImage'
 import { formatRequestDebugForCopy } from '../../../image_gen/utils/requestDebug'
 import { usePromptLibraryStore, type PromptSet } from '../../prompt_library/store'
@@ -27,8 +27,20 @@ const MAX_GEN_PRODUCT_ANGLES = 8
 
 const CACHE_SAVE_DIR = 'cache/input-images/i2v'
 
-const PS_INPUT_MANIFEST_KEY = 'nexa-qa-product-shot-input-manifest:v1'
-const PS_SESSION_KEY = 'nexa-qa-product-shot-session:v1'
+const PS_INPUT_MANIFEST_KEY_V1 = 'nexa-qa-product-shot-input-manifest:v1'
+const PS_SESSION_KEY_V1 = 'nexa-qa-product-shot-session:v1'
+const PS_INPUT_MANIFEST_KEY_V2 = 'nexa-qa-product-shot-input-manifest:v2'
+const PS_SESSION_KEY_V2 = 'nexa-qa-product-shot-session:v2'
+
+const PS_WORKSPACE_SCRATCH = '__scratch__'
+
+function psInputKey(workspaceId: string) {
+  return `${PS_INPUT_MANIFEST_KEY_V2}:${workspaceId}`
+}
+
+function psSessionKey(workspaceId: string) {
+  return `${PS_SESSION_KEY_V2}:${workspaceId}`
+}
 
 const ALLOWED_RATIOS = ['Auto', '1:1', '3:4', '4:3', '9:16', '16:9', '2:3', '3:2', '21:9'] as const
 const ALLOWED_RES = ['1K', '2K', '4K'] as const
@@ -92,6 +104,7 @@ type ProductShotSession = {
   taskBatchCount?: number
 
   genieTemplateSource?: GenieTemplateSource
+  genieBaseSetId?: string
   genieUseImages?: boolean
   genieFlags?: Partial<GenieSendFlags>
   genieProductAngleCount?: number
@@ -101,9 +114,9 @@ type ProductShotSession = {
 }
 
 // Keep in-memory snapshot so switching routes doesn't blank the UI
-let memManifest: ProductShotInputManifest | null = null
-let memSession: ProductShotSession | null = null
-let memDebugByUrl: Record<string, { request?: any, response?: any }> = {}
+let memManifestByWs: Record<string, ProductShotInputManifest | null> = {}
+let memSessionByWs: Record<string, ProductShotSession | null> = {}
+let memDebugByWs: Record<string, Record<string, { request?: any, response?: any }>> = {}
 
 function getFileNameFromPath(p: string): string {
   const s = String(p || '').replace(/\\/g, '/')
@@ -349,12 +362,12 @@ export default function ProductShotStudio() {
   ]), [])
 
   const [productAngles, setProductAngles] = useState<QuickAppInputImage[]>(() => {
-    const m = memManifest
+    const m = memManifestByWs[PS_WORKSPACE_SCRATCH] || null
     if (!m) return []
     return (m.productAngles || [])
-      .filter(x => x && x.id && x.localPath)
+      .filter((x: any) => x && x.id && x.localPath)
       .slice(0, 24)
-      .map(x => ({
+      .map((x: any) => ({
         id: String(x.id),
         name: String(x.name || 'image'),
         dataUrl: String(x.localPath),
@@ -366,7 +379,7 @@ export default function ProductShotStudio() {
   const [images, setImages] = useState<Record<string, QuickAppInputImage | null>>(() => {
     const init: Record<string, QuickAppInputImage | null> = {}
     for (const s of slots) init[s.key] = null
-    const m = memManifest
+    const m = memManifestByWs[PS_WORKSPACE_SCRATCH] || null
     if (!m || !m.slots) return init
     for (const s of slots) {
       const it = (m.slots as any)[s.key] as InputManifestItem | null
@@ -384,8 +397,8 @@ export default function ProductShotStudio() {
     return init
   })
 
-  const [inputHydrated, setInputHydrated] = useState(false)
-  const [sessionHydrated, setSessionHydrated] = useState(false)
+  const [inputHydratedWs, setInputHydratedWs] = useState<string>('')
+  const [sessionHydratedWs, setSessionHydratedWs] = useState<string>('')
   const persistingRef = useRef({ manifest: 0 as any, session: 0 as any })
 
   const promptSets = usePromptLibraryStore(s => s.sets)
@@ -425,24 +438,25 @@ export default function ProductShotStudio() {
     return first?.text || ''
   }
 
-  const [agent1Template, setAgent1Template] = useState(() => (memSession?.agent1Template ?? initialTextForRole('agent_1')))
-  const [agent2Template, setAgent2Template] = useState(() => (memSession?.agent2Template ?? initialTextForRole('agent_2')))
-  const [agent3Template, setAgent3Template] = useState(() => (memSession?.agent3Template ?? initialTextForRole('agent_3')))
+  const seedSession = memSessionByWs[PS_WORKSPACE_SCRATCH] || null
+  const [agent1Template, setAgent1Template] = useState(() => (seedSession?.agent1Template ?? initialTextForRole('agent_1')))
+  const [agent2Template, setAgent2Template] = useState(() => (seedSession?.agent2Template ?? initialTextForRole('agent_2')))
+  const [agent3Template, setAgent3Template] = useState(() => (seedSession?.agent3Template ?? initialTextForRole('agent_3')))
 
-  const [agent1Output, setAgent1Output] = useState(() => String(memSession?.agent1Output || ''))
-  const [agent2Output, setAgent2Output] = useState(() => String(memSession?.agent2Output || ''))
-  const [finalPrompt, setFinalPrompt] = useState(() => String(memSession?.finalPrompt || ''))
+  const [agent1Output, setAgent1Output] = useState(() => String(seedSession?.agent1Output || ''))
+  const [agent2Output, setAgent2Output] = useState(() => String(seedSession?.agent2Output || ''))
+  const [finalPrompt, setFinalPrompt] = useState(() => String(seedSession?.finalPrompt || ''))
   const [outImages, setOutImages] = useState<string[]>(() => (
-    Array.isArray(memSession?.outImages) ? memSession!.outImages!.map(String).filter(Boolean) : []
+    Array.isArray(seedSession?.outImages) ? seedSession!.outImages!.map(String).filter(Boolean) : []
   ))
 
   const [outMetaByUrl, setOutMetaByUrl] = useState<Record<string, { createdAt: number, model: string, ratio: string, res: string, targetSize: string, actualSize?: string }>>(() => {
-    const m = memSession?.outMetaByUrl
+    const m = seedSession?.outMetaByUrl
     if (!m || typeof m !== 'object') return {}
     return m as any
   })
 
-  const debugRef = useRef<Record<string, { request?: any, response?: any }>>(memDebugByUrl)
+  const debugRef = useRef<Record<string, { request?: any, response?: any }>>(memDebugByWs[PS_WORKSPACE_SCRATCH] || {})
   const [debugTick, setDebugTick] = useState(0)
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -476,28 +490,29 @@ export default function ProductShotStudio() {
     return list.slice(0, 4)
   }, [provider])
 
-  const [agent1Model, setAgent1Model] = useState(() => String(memSession?.agent1Model || promptModel))
-  const [agent2Model, setAgent2Model] = useState(() => String(memSession?.agent2Model || promptModel))
-  const [genModel, setGenModel] = useState(() => String(memSession?.genModel || imageModel))
+  const [agent1Model, setAgent1Model] = useState(() => String(seedSession?.agent1Model || promptModel))
+  const [agent2Model, setAgent2Model] = useState(() => String(seedSession?.agent2Model || promptModel))
+  const [genModel, setGenModel] = useState(() => String(seedSession?.genModel || imageModel))
 
   const [genRatio, setGenRatio] = useState<'Auto' | '1:1' | '3:4' | '4:3' | '9:16' | '16:9' | '2:3' | '3:2' | '21:9'>(() => {
-    const r = String(memSession?.genRatio || '')
+    const r = String(seedSession?.genRatio || '')
     return (['Auto', '1:1', '3:4', '4:3', '9:16', '16:9', '2:3', '3:2', '21:9'].includes(r) ? (r as any) : '1:1')
   })
   const [genRes, setGenRes] = useState<'1K' | '2K' | '4K'>(() => {
-    const r = String(memSession?.genRes || '')
+    const r = String(seedSession?.genRes || '')
     return (['1K', '2K', '4K'].includes(r) ? (r as any) : '1K')
   })
   const [genParamsOpen, setGenParamsOpen] = useState(false)
 
-  const [taskBatchCount, setTaskBatchCount] = useState<number>(() => clampInt((memSession as any)?.taskBatchCount, 1, 20))
+  const [taskBatchCount, setTaskBatchCount] = useState<number>(() => clampInt((seedSession as any)?.taskBatchCount, 1, 20))
 
   const [genieOpen, setGenieOpen] = useState(false)
-  const [genieTemplateSource, setGenieTemplateSource] = useState<GenieTemplateSource>(() => (((memSession as any)?.genieTemplateSource === 'set') ? 'set' : 'editor'))
-  const [genieUseImages, setGenieUseImages] = useState<boolean>(() => Boolean((memSession as any)?.genieUseImages))
-  const [genieFlags, setGenieFlags] = useState<GenieSendFlags>(() => ({ ...DEFAULT_GENIE_FLAGS, ...(((memSession as any)?.genieFlags || {}) as any) }))
-  const [genieProductAngleCount, setGenieProductAngleCount] = useState<number>(() => clampInt((memSession as any)?.genieProductAngleCount, 0, 2))
-  const [genieUserIdea, setGenieUserIdea] = useState<string>(() => String((memSession as any)?.genieUserIdea || ''))
+  const [genieTemplateSource, setGenieTemplateSource] = useState<GenieTemplateSource>(() => (((seedSession as any)?.genieTemplateSource === 'set') ? 'set' : 'editor'))
+  const [genieBaseSetId, setGenieBaseSetId] = useState<string>(() => String((seedSession as any)?.genieBaseSetId || 'follow-active'))
+  const [genieUseImages, setGenieUseImages] = useState<boolean>(() => Boolean((seedSession as any)?.genieUseImages))
+  const [genieFlags, setGenieFlags] = useState<GenieSendFlags>(() => ({ ...DEFAULT_GENIE_FLAGS, ...(((seedSession as any)?.genieFlags || {}) as any) }))
+  const [genieProductAngleCount, setGenieProductAngleCount] = useState<number>(() => clampInt((seedSession as any)?.genieProductAngleCount, 0, 2))
+  const [genieUserIdea, setGenieUserIdea] = useState<string>(() => String((seedSession as any)?.genieUserIdea || ''))
 
   const decTaskBatch = () => setTaskBatchCount(v => clampInt(v - 1, 1, 20))
   const incTaskBatch = () => setTaskBatchCount(v => clampInt(v + 1, 1, 20))
@@ -525,67 +540,25 @@ export default function ProductShotStudio() {
     return setsForProductShot.find(x => x.id === id) || null
   }, [activePromptSetId, setsForProductShot])
 
+  const workspaceId = useMemo(() => {
+    const id = String(activePromptSetId || '').trim()
+    return id || PS_WORKSPACE_SCRATCH
+  }, [activePromptSetId])
+
+  const inputHydrated = inputHydratedWs === workspaceId
+  const sessionHydrated = sessionHydratedWs === workspaceId
+
   const lastAppliedSetRef = useRef<{ id: string | null, a1: string, a2: string, a3: string, r: string, res: string, m1: string, m2: string, gm: string } | null>(null)
 
   const applyPromptSet = async (s: PromptSet) => {
     const nextId = String(s?.id || '').trim()
     if (!nextId) return
-
-    // Only warn when the current UI differs from the currently selected template set.
-    // (Avoid popping this confirm on every remount / view switch.)
-    const curSet = activePromptSetId ? (setsForProductShot.find(x => x.id === activePromptSetId) || null) : null
-    const hasAnyText = Boolean(String(agent1Template || '').trim() || String(agent2Template || '').trim() || String(agent3Template || '').trim())
-    const isDirty = (() => {
-      if (!curSet) return hasAnyText
-
-      if (String(agent1Template || '') !== String(curSet.agent1Template || '')) return true
-      if (String(agent2Template || '') !== String(curSet.agent2Template || '')) return true
-      if (String(agent3Template || '') !== String(curSet.agent3Template || '')) return true
-
-      const r0 = String(curSet.genRatio || '')
-      if (r0 && isAllowedRatio(r0) && String(genRatio || '') !== r0) return true
-      const res0 = String(curSet.genRes || '')
-      if (res0 && isAllowedRes(res0) && String(genRes || '') !== res0) return true
-
-      const m10 = String(curSet.agent1Model || '').trim()
-      if (m10 && String(agent1Model || '').trim() !== m10) return true
-      const m20 = String(curSet.agent2Model || '').trim()
-      if (m20 && String(agent2Model || '').trim() !== m20) return true
-      const gm0 = String(curSet.genModel || '').trim()
-      if (gm0 && String(genModel || '').trim() !== gm0) return true
-
-      return false
-    })()
-
-    if (isDirty) {
-      const ok = await uiConfirm('切换模板组会覆盖当前三个角色模板与生图参数/模型，确定继续？', '切换')
-      if (!ok) return
-    }
-
-    setAgent1Template(String(s.agent1Template || ''))
-    setAgent2Template(String(s.agent2Template || ''))
-    setAgent3Template(String(s.agent3Template || ''))
-    if (s.genRatio && isAllowedRatio(String(s.genRatio))) setGenRatio(String(s.genRatio) as any)
-    if (s.genRes && isAllowedRes(String(s.genRes))) setGenRes(String(s.genRes) as any)
-
-    if (s.agent1Model) setAgent1Model(String(s.agent1Model))
-    if (s.agent2Model) setAgent2Model(String(s.agent2Model))
-    if (s.genModel) setGenModel(String(s.genModel))
-
+    // Switch workspace by template group id.
+    // Per-template workspaces prevent images/outputs from leaking across groups.
     setActivePromptSetId(nextId)
     setActiveSet('product_shot', nextId)
-    lastAppliedSetRef.current = {
-      id: nextId,
-      a1: String(s.agent1Template || ''),
-      a2: String(s.agent2Template || ''),
-      a3: String(s.agent3Template || ''),
-      r: String((s.genRatio && isAllowedRatio(String(s.genRatio)) ? s.genRatio : genRatio) || ''),
-      res: String((s.genRes && isAllowedRes(String(s.genRes)) ? s.genRes : genRes) || ''),
-      m1: String(s.agent1Model || agent1Model || ''),
-      m2: String(s.agent2Model || agent2Model || ''),
-      gm: String(s.genModel || genModel || '')
-    }
-    uiToast('success', `已应用模板组：${String(s.name || '').trim() || '未命名'}`)
+    lastAppliedSetRef.current = null
+    uiToast('success', `已切换模板组：${String(s.name || '').trim() || '未命名'}`)
   }
 
   // Apply selected set from URL (ProductShotHome -> Studio)
@@ -612,7 +585,8 @@ export default function ProductShotStudio() {
 
     void (async () => {
       try {
-        await applyPromptSet(cur)
+        setActivePromptSetId(String(cur.id))
+        setActiveSet('product_shot', String(cur.id))
       } finally {
         try {
           const sp = new URLSearchParams(String(loc.search || ''))
@@ -646,9 +620,23 @@ export default function ProductShotStudio() {
       genRes: String(genRes || '')
     })
 
+    // Clone current workspace into the newly created template group workspace
+    // so the UI doesn't blank on switch.
+    try {
+      const newWsId = String(created.id || '').trim() || PS_WORKSPACE_SCRATCH
+      const m = buildManifest()
+      const s = buildSession()
+      memManifestByWs[newWsId] = m
+      memSessionByWs[newWsId] = s
+      await kvSetJson(psInputKey(newWsId), m)
+      await kvSetJson(psSessionKey(newWsId), s)
+    } catch {
+      // ignore
+    }
+
     setActivePromptSetId(created.id)
     setActiveSet('product_shot', created.id)
-    lastAppliedSetRef.current = { id: created.id, a1: created.agent1Template, a2: created.agent2Template, a3: created.agent3Template, r: String(created.genRatio || ''), res: String(created.genRes || ''), m1: String(created.agent1Model || ''), m2: String(created.agent2Model || ''), gm: String(created.genModel || '') }
+    lastAppliedSetRef.current = null
     uiToast('success', '已保存到提示词库')
   }
 
@@ -685,6 +673,15 @@ export default function ProductShotStudio() {
     const ok = await uiConfirm(`确定删除模板组「${cur?.name || '未命名'}」？`, '删除')
     if (!ok) return
     removePromptSet(id)
+    try {
+      delete memManifestByWs[id]
+      delete memSessionByWs[id]
+      delete memDebugByWs[id]
+      await kvRemove(psInputKey(id))
+      await kvRemove(psSessionKey(id))
+    } catch {
+      // ignore
+    }
     setActiveSet('product_shot', null)
     setActivePromptSetId('')
     lastAppliedSetRef.current = null
@@ -824,23 +821,53 @@ export default function ProductShotStudio() {
     return ''
   }, [previewUrl, previewAbsPath])
 
+  // keep per-workspace debug cache
+  const prevWsRef = useRef<string>(workspaceId)
+  useEffect(() => {
+    try {
+      const prev = prevWsRef.current
+      if (prev) memDebugByWs[prev] = debugRef.current || {}
+      prevWsRef.current = workspaceId
+      debugRef.current = memDebugByWs[workspaceId] || {}
+      setDebugTick(v => v + 1)
+      setPreviewUrl(null)
+      setPreviewMsg('')
+    } catch {
+      // ignore
+    }
+  }, [workspaceId])
+
   // hydrate persisted manifest + session
   useEffect(() => {
     let alive = true
     ;(async () => {
       try {
-        const m = await kvGetJsonMigrate<ProductShotInputManifest>(PS_INPUT_MANIFEST_KEY, { productAngles: [], slots: {} })
+        const key = psInputKey(workspaceId)
+        let m = await kvGetJsonMigrate<ProductShotInputManifest | null>(key, null)
+
+        // One-time migrate from v1 -> current workspace when v2 missing.
+        if (!m) {
+          const old = await kvGetJson<ProductShotInputManifest | null>(PS_INPUT_MANIFEST_KEY_V1, null)
+          if (old && typeof old === 'object') {
+            await kvSetJson(key, old)
+            await kvRemove(PS_INPUT_MANIFEST_KEY_V1)
+            m = old
+          }
+        }
         if (!alive) return
 
-        const mem = memManifest
+        const mem = memManifestByWs[workspaceId] || null
         const memTs = Number(mem?.updatedAt || 0)
-        const diskTs = Number(m?.updatedAt || 0)
-        const use = (mem && memTs >= diskTs) ? mem : m
+        const diskTs = Number((m as any)?.updatedAt || 0)
+        const use = (mem && memTs >= diskTs) ? mem : (m || null)
+        const useObj: ProductShotInputManifest = (use && typeof use === 'object')
+          ? (use as any)
+          : { productAngles: [], slots: {}, updatedAt: Date.now() }
 
-        const angles: QuickAppInputImage[] = (use?.productAngles || [])
-          .filter(x => x && x.id && x.localPath)
+        const angles: QuickAppInputImage[] = (useObj.productAngles || [])
+          .filter((x: any) => x && x.id && x.localPath)
           .slice(0, 24)
-          .map(x => ({
+          .map((x: any) => ({
             id: String(x.id),
             name: String(x.name || 'image'),
             dataUrl: String(x.localPath),
@@ -852,7 +879,7 @@ export default function ProductShotStudio() {
         const nextImages: Record<string, QuickAppInputImage | null> = {}
         for (const s of slots) nextImages[s.key] = null
         for (const s of slots) {
-          const it = (use?.slots || ({} as any))?.[s.key] as InputManifestItem | null
+          const it = (useObj.slots || ({} as any))?.[s.key] as InputManifestItem | null
           if (it && it.id && it.localPath) {
             nextImages[s.key] = {
               id: String(it.id),
@@ -868,84 +895,129 @@ export default function ProductShotStudio() {
         setProductAngles(angles)
         setImages(nextImages)
 
-        memManifest = use || null
+        memManifestByWs[workspaceId] = useObj
       } catch {
         // ignore
       } finally {
-        if (alive) setInputHydrated(true)
+        if (alive) setInputHydratedWs(workspaceId)
       }
     })()
     return () => {
       alive = false
     }
-  }, [slots])
+  }, [slots, workspaceId])
 
   useEffect(() => {
     let alive = true
     ;(async () => {
       try {
-        const s = await kvGetJsonMigrate<ProductShotSession>(PS_SESSION_KEY, {})
-        if (!alive) return
-        const mem = memSession
-        const memTs = Number(mem?.updatedAt || 0)
-        const diskTs = Number(s?.updatedAt || 0)
-        const use = (mem && memTs >= diskTs) ? mem : s
+        const key = psSessionKey(workspaceId)
+        let s = await kvGetJsonMigrate<ProductShotSession | null>(key, null)
 
-        if (typeof use?.agent1Template === 'string') setAgent1Template(use.agent1Template)
-        if (typeof use?.agent2Template === 'string') setAgent2Template(use.agent2Template)
-        if (typeof use?.agent3Template === 'string') setAgent3Template(use.agent3Template)
-        if (typeof use?.agent1Output === 'string') setAgent1Output(use.agent1Output)
-        if (typeof use?.agent2Output === 'string') setAgent2Output(use.agent2Output)
-        if (typeof use?.finalPrompt === 'string') setFinalPrompt(use.finalPrompt)
-        if (Array.isArray(use?.outImages)) setOutImages(use.outImages.map(String).filter(Boolean).slice(0, 60))
-        if (use?.outMetaByUrl && typeof use.outMetaByUrl === 'object') {
-          setOutMetaByUrl(use.outMetaByUrl as any)
+        // One-time migrate from v1 -> current workspace when v2 missing.
+        if (!s) {
+          const old = await kvGetJson<ProductShotSession | null>(PS_SESSION_KEY_V1, null)
+          if (old && typeof old === 'object') {
+            await kvSetJson(key, old)
+            await kvRemove(PS_SESSION_KEY_V1)
+            s = old
+          }
         }
-        if (typeof use?.agent1Model === 'string') setAgent1Model(use.agent1Model)
-        if (typeof use?.agent2Model === 'string') setAgent2Model(use.agent2Model)
-        if (typeof use?.genModel === 'string') setGenModel(use.genModel)
+        if (!alive) return
 
-        if (typeof use?.genRatio === 'string') {
-          const r = String(use.genRatio)
+        const mem = memSessionByWs[workspaceId] || null
+        const memTs = Number(mem?.updatedAt || 0)
+        const diskTs = Number((s as any)?.updatedAt || 0)
+        const use = (mem && memTs >= diskTs) ? mem : (s || null)
+
+        const initFromSet = (): ProductShotSession => {
+          const setObj = String(activePromptSetId || '').trim() ? activePromptSetObj : null
+          return {
+            agent1Template: String(setObj?.agent1Template || initialTextForRole('agent_1')),
+            agent2Template: String(setObj?.agent2Template || initialTextForRole('agent_2')),
+            agent3Template: String(setObj?.agent3Template || initialTextForRole('agent_3')),
+            agent1Output: '',
+            agent2Output: '',
+            finalPrompt: '',
+            outImages: [],
+            outMetaByUrl: {},
+            agent1Model: String(setObj?.agent1Model || promptModel || ''),
+            agent2Model: String(setObj?.agent2Model || promptModel || ''),
+            genModel: String(setObj?.genModel || imageModel || ''),
+            genRatio: String((setObj?.genRatio && isAllowedRatio(String(setObj.genRatio))) ? setObj.genRatio : '1:1'),
+            genRes: String((setObj?.genRes && isAllowedRes(String(setObj.genRes))) ? setObj.genRes : '1K'),
+            taskBatchCount: 1,
+            genieTemplateSource: 'editor',
+            genieBaseSetId: 'follow-active',
+            genieUseImages: false,
+            genieFlags: DEFAULT_GENIE_FLAGS,
+            genieProductAngleCount: 0,
+            genieUserIdea: '',
+            updatedAt: Date.now()
+          }
+        }
+
+        const useObj: ProductShotSession = (use && typeof use === 'object') ? (use as any) : initFromSet()
+
+        if (typeof useObj?.agent1Template === 'string') setAgent1Template(useObj.agent1Template)
+        if (typeof useObj?.agent2Template === 'string') setAgent2Template(useObj.agent2Template)
+        if (typeof useObj?.agent3Template === 'string') setAgent3Template(useObj.agent3Template)
+        if (typeof useObj?.agent1Output === 'string') setAgent1Output(useObj.agent1Output)
+        if (typeof useObj?.agent2Output === 'string') setAgent2Output(useObj.agent2Output)
+        if (typeof useObj?.finalPrompt === 'string') setFinalPrompt(useObj.finalPrompt)
+        if (Array.isArray(useObj?.outImages)) setOutImages(useObj.outImages.map(String).filter(Boolean).slice(0, 60))
+        if (useObj?.outMetaByUrl && typeof useObj.outMetaByUrl === 'object') {
+          setOutMetaByUrl(useObj.outMetaByUrl as any)
+        }
+        if (typeof useObj?.agent1Model === 'string') setAgent1Model(useObj.agent1Model)
+        if (typeof useObj?.agent2Model === 'string') setAgent2Model(useObj.agent2Model)
+        if (typeof useObj?.genModel === 'string') setGenModel(useObj.genModel)
+
+        if (typeof useObj?.genRatio === 'string') {
+          const r = String(useObj.genRatio)
           if (['Auto', '1:1', '3:4', '4:3', '9:16', '16:9', '2:3', '3:2', '21:9'].includes(r)) setGenRatio(r as any)
         }
-        if (typeof use?.genRes === 'string') {
-          const rr = String(use.genRes)
+        if (typeof useObj?.genRes === 'string') {
+          const rr = String(useObj.genRes)
           if (['1K', '2K', '4K'].includes(rr)) setGenRes(rr as any)
         }
 
-        if (typeof (use as any)?.taskBatchCount === 'number') {
-          setTaskBatchCount(clampInt((use as any).taskBatchCount, 1, 20))
+        if (typeof (useObj as any)?.taskBatchCount === 'number') {
+          setTaskBatchCount(clampInt((useObj as any).taskBatchCount, 1, 20))
         }
 
-        if (typeof (use as any)?.genieTemplateSource === 'string') {
-          const v = String((use as any).genieTemplateSource)
+        if (typeof (useObj as any)?.genieTemplateSource === 'string') {
+          const v = String((useObj as any).genieTemplateSource)
           if (v === 'set' || v === 'editor') setGenieTemplateSource(v as any)
         }
-        if (typeof (use as any)?.genieUseImages === 'boolean') {
-          setGenieUseImages(Boolean((use as any).genieUseImages))
+        if (typeof (useObj as any)?.genieBaseSetId === 'string') {
+          const v = String((useObj as any).genieBaseSetId || '').trim()
+          setGenieBaseSetId(v || 'follow-active')
         }
-        if ((use as any)?.genieFlags && typeof (use as any).genieFlags === 'object') {
-          setGenieFlags(prev => ({ ...prev, ...((use as any).genieFlags || {}) }))
+        if (typeof (useObj as any)?.genieUseImages === 'boolean') {
+          setGenieUseImages(Boolean((useObj as any).genieUseImages))
         }
-        if (typeof (use as any)?.genieProductAngleCount === 'number') {
-          setGenieProductAngleCount(clampInt((use as any).genieProductAngleCount, 0, 2))
+        if ((useObj as any)?.genieFlags && typeof (useObj as any).genieFlags === 'object') {
+          setGenieFlags(prev => ({ ...prev, ...((useObj as any).genieFlags || {}) }))
         }
-        if (typeof (use as any)?.genieUserIdea === 'string') {
-          setGenieUserIdea(String((use as any).genieUserIdea || ''))
+        if (typeof (useObj as any)?.genieProductAngleCount === 'number') {
+          setGenieProductAngleCount(clampInt((useObj as any).genieProductAngleCount, 0, 2))
+        }
+        if (typeof (useObj as any)?.genieUserIdea === 'string') {
+          setGenieUserIdea(String((useObj as any).genieUserIdea || ''))
         }
 
-        memSession = use || null
+        memSessionByWs[workspaceId] = useObj
       } catch {
         // ignore
       } finally {
-        if (alive) setSessionHydrated(true)
+        if (alive) setSessionHydratedWs(workspaceId)
       }
     })()
     return () => {
       alive = false
     }
-  }, [])
+  }, [workspaceId, activePromptSetId, activePromptSetObj, promptModel, imageModel])
 
   const buildManifest = (): ProductShotInputManifest => {
     const pa: InputManifestItem[] = []
@@ -1003,6 +1075,7 @@ export default function ProductShotStudio() {
     taskBatchCount: clampInt(taskBatchCount, 1, 20),
 
     genieTemplateSource,
+    genieBaseSetId: String(genieBaseSetId || 'follow-active'),
     genieUseImages,
     genieFlags,
     genieProductAngleCount: clampInt(genieProductAngleCount, 0, 2),
@@ -1016,11 +1089,11 @@ export default function ProductShotStudio() {
     window.clearTimeout(persistingRef.current.manifest)
     persistingRef.current.manifest = window.setTimeout(() => {
       const m = buildManifest()
-      memManifest = m
-      void kvSetJson(PS_INPUT_MANIFEST_KEY, m)
+      memManifestByWs[workspaceId] = m
+      void kvSetJson(psInputKey(workspaceId), m)
     }, 420)
     return () => window.clearTimeout(persistingRef.current.manifest)
-  }, [inputHydrated, productAngles, images, slots])
+  }, [workspaceId, inputHydrated, productAngles, images, slots])
 
   // persist session (texts + selected models)
   useEffect(() => {
@@ -1028,11 +1101,11 @@ export default function ProductShotStudio() {
     window.clearTimeout(persistingRef.current.session)
     persistingRef.current.session = window.setTimeout(() => {
       const s = buildSession()
-      memSession = s
-      void kvSetJson(PS_SESSION_KEY, s)
+      memSessionByWs[workspaceId] = s
+      void kvSetJson(psSessionKey(workspaceId), s)
     }, 420)
     return () => window.clearTimeout(persistingRef.current.session)
-  }, [sessionHydrated, agent1Template, agent2Template, agent3Template, agent1Output, agent2Output, finalPrompt, outImages, outMetaByUrl, agent1Model, agent2Model, genModel, genRatio, genRes, taskBatchCount, genieTemplateSource, genieUseImages, genieFlags, genieProductAngleCount, genieUserIdea])
+  }, [workspaceId, sessionHydrated, agent1Template, agent2Template, agent3Template, agent1Output, agent2Output, finalPrompt, outImages, outMetaByUrl, agent1Model, agent2Model, genModel, genRatio, genRes, taskBatchCount, genieTemplateSource, genieBaseSetId, genieUseImages, genieFlags, genieProductAngleCount, genieUserIdea])
 
   // best-effort flush on unmount
   useEffect(() => {
@@ -1040,19 +1113,19 @@ export default function ProductShotStudio() {
       try {
         if (inputHydrated) {
           const m = buildManifest()
-          memManifest = m
-          void kvSetJson(PS_INPUT_MANIFEST_KEY, m)
+          memManifestByWs[workspaceId] = m
+          void kvSetJson(psInputKey(workspaceId), m)
         }
         if (sessionHydrated) {
           const s = buildSession()
-          memSession = s
-          void kvSetJson(PS_SESSION_KEY, s)
+          memSessionByWs[workspaceId] = s
+          void kvSetJson(psSessionKey(workspaceId), s)
         }
       } catch {
         // ignore
       }
     }
-  }, [inputHydrated, sessionHydrated, productAngles, images, slots, agent1Template, agent2Template, agent3Template, agent1Output, agent2Output, finalPrompt, outImages, outMetaByUrl, agent1Model, agent2Model, genModel, genRatio, genRes, taskBatchCount, genieTemplateSource, genieUseImages, genieFlags, genieProductAngleCount, genieUserIdea])
+  }, [workspaceId, inputHydrated, sessionHydrated, productAngles, images, slots, agent1Template, agent2Template, agent3Template, agent1Output, agent2Output, finalPrompt, outImages, outMetaByUrl, agent1Model, agent2Model, genModel, genRatio, genRes, taskBatchCount, genieTemplateSource, genieBaseSetId, genieUseImages, genieFlags, genieProductAngleCount, genieUserIdea])
 
   const sentItemsAgent1: SentItem[] = useMemo(() => {
     const items: SentItem[] = []
@@ -1363,7 +1436,7 @@ export default function ProductShotStudio() {
           for (const u of urls.map(String).filter(Boolean)) {
             debugRef.current[u] = { request: lastReq || undefined, response: lastResp || undefined }
           }
-          memDebugByUrl = debugRef.current
+          memDebugByWs[workspaceId] = debugRef.current
           setDebugTick(t => t + 1)
         }
       }
@@ -1797,6 +1870,8 @@ export default function ProductShotStudio() {
         model={String(effectiveAgent2Model || promptModel || '').trim()}
         templateSource={genieTemplateSource}
         onTemplateSourceChange={setGenieTemplateSource}
+        baseSetId={genieBaseSetId}
+        onBaseSetIdChange={setGenieBaseSetId}
         useImages={genieUseImages}
         onUseImagesChange={setGenieUseImages}
         flags={genieFlags}
