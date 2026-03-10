@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "updatedAt": "2026-03-10T12:00:00Z",
+  "publicApps": [],
+  "customers": [
+    {
+      "customerId": "LH001",
+      "accessCode": "LH2026",
+      "displayName": "刘欢",
+      "allowedApps": ["product_shot_clothing"],
+      "enabled": true
+    }
+  ]
+}
